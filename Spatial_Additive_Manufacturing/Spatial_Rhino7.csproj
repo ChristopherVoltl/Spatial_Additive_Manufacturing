@@ -1,0 +1,31 @@
+﻿<Project Sdk="Microsoft.NET.Sdk">
+	
+  <PropertyGroup>
+    <TargetFramework>net48</TargetFramework>
+    <Version>1.0</Version>
+    <Title>Spatial_Rhino7</Title>
+    <Description>Description of Spatial_Rhino7</Description>
+    <TargetExt>.gha</TargetExt>
+  </PropertyGroup>
+  
+  <ItemGroup>
+    <Reference Include="GH_IO">
+      <HintPath>..\..\..\..\..\..\Program Files\Rhino 7\Plug-ins\Grasshopper\GH_IO.dll</HintPath>
+    </Reference>
+    <Reference Include="Grasshopper">
+      <HintPath>..\..\..\..\..\..\Program Files\Rhino 7\Plug-ins\Grasshopper\Grasshopper.dll</HintPath>
+      <Private>False</Private>
+      <EmbedInteropTypes></EmbedInteropTypes>
+      <SpecificVersion></SpecificVersion>
+    </Reference>
+    <Reference Include="RhinoCommon">
+      <HintPath>..\..\..\..\..\..\Program Files\Rhino 7\System\RhinoCommon.dll</HintPath>
+      <Private>False</Private>
+      <EmbedInteropTypes></EmbedInteropTypes>
+    </Reference>
+    <Reference Include="SMT">
+      <HintPath>..\..\..\..\Documents\SMT\Rhino 7\SMT.dll</HintPath>
+    </Reference>
+  </ItemGroup>
+
+</Project>
