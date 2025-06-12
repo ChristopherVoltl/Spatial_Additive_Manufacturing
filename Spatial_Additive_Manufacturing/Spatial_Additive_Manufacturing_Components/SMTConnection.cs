@@ -16,6 +16,7 @@ using static System.Windows.Forms.VisualStyles.VisualStyleElement;
 using System.Reflection.Metadata;
 using Ed.Eto;
 using System.Security.Cryptography;
+using Eto.Forms;
 
 
 namespace Spatial_Additive_Manufacturing
@@ -23,7 +24,7 @@ namespace Spatial_Additive_Manufacturing
     public class SMTConnection_Component : GH_Component
     {
         static SuperMatterToolsPlugin smtPlugin => SuperMatterToolsPlugin.Instance;
-
+        private static ToolpathPlaneConduit _toolpathConduit;
 
 
         public SMTConnection_Component() : base("SMT Connection", "SMT C", "Spatial printing curves to SMT", "FGAM", "SpatialPrinting")
@@ -74,7 +75,7 @@ namespace Spatial_Additive_Manufacturing
                     opUI.LIStyle = InOutStyle.Inactive;
                     opUI.LOStyle = InOutStyle.Inactive;
                     //opUI.ApproxDist = 0.0f;
-                    opUI.PTP_Traverse = true;
+                    //opUI.PTP_Traverse = false;
 
                     //actionstates of the extrusion operation
                     ActionState extrudeAct = opUI.SuperOperationRef.GetActionState("Extrude");
@@ -86,9 +87,9 @@ namespace Spatial_Additive_Manufacturing
                     SuperActionUI actionHeatingUI = opUI.ActionControls["NozzleCooling"];
                     actionHeatingUI.ActivationMode = ActivationStyle.PointData;
 
-                    //ActionState nozzleCoolingAct = opUI.SuperOperationRef.GetActionState("NozzleCooling2");
-                    //SuperActionUI actionCoolingUI = opUI.ActionControls["NozzleCooling2"];
-                    //actionCoolingUI.ActivationMode = ActivationStyle.PointData;
+                    ActionState nozzleCoolingAct = opUI.SuperOperationRef.GetActionState("NozzleCooling2");
+                    SuperActionUI actionCoolingUI = opUI.ActionControls["NozzleCooling2"];
+                    actionCoolingUI.ActivationMode = ActivationStyle.PointData;
 
                     ActionState PauseAct = opUI.SuperOperationRef.GetActionState("CycleWait");
                     SuperActionUI actionPauseUI = opUI.ActionControls["CycleWait"];
@@ -111,8 +112,8 @@ namespace Spatial_Additive_Manufacturing
                     SuperEvent stopHeat = new SuperEvent(nozzleHeatingAct, 0.0, EventType.Deactivate, true);
                     
                     //nozzle cooling actionstates
-                    //SuperEvent cool = new SuperEvent(nozzleCoolingAct, 0.0, EventType.Activate, true);
-                    //SuperEvent stopCooling = new SuperEvent(nozzleCoolingAct, 0.0, EventType.Deactivate, true);
+                    SuperEvent cool = new SuperEvent(nozzleCoolingAct, 0.0, EventType.Activate, true);
+                    SuperEvent stopCooling = new SuperEvent(nozzleCoolingAct, 0.0, EventType.Deactivate, true);
 
                     //cycle wait actionstates
                     SuperEvent cycleWait = new SuperEvent(PauseAct, 0.0, EventType.Activate, true);
@@ -131,7 +132,11 @@ namespace Spatial_Additive_Manufacturing
                     //SMT.AxisState extrusionAxisStateE2 = new SMT.AxisState();
                     //extrusionAxisStateE2.Value = maxAlpha;
 
-
+                    List<Plane> allPlanes = new List<Plane>();
+                    List<double> allE5Values = new List<double>();
+                    List<double> allXAxisDifValues = new List<double>();
+                    List<double> allYAxisDifValues = new List<double>();
+                    List<double> allPlaneRotationAngles = new List<double>();
 
                     //loop through each path polyline 
                     List<List<SMTPData>> allSMTPData = new();
@@ -155,44 +160,104 @@ namespace Spatial_Additive_Manufacturing
                             List<SMTPData> pData = new();
 
                             IPlaneGenerator planeGenerator = PlaneGeneratorFactory.GetGenerator(eachCurve.Orientation);
-                            IInnerPointStrategy pointStrategy = InnerPointStrategyFactory.GetStrategy(eachCurve);
+                            IPathPointStrategy pointStrategy = PathPointStrategyFactory.GetStrategy(eachCurve);
 
                             double E5Val = 1.0;
                             float velRatio = 1.0f;
 
                             //Pre-extrusion
-                            Plane prePlane = planeGenerator.GeneratePlane(eachCurve, eachCurve.preExtrusion);
+                            Plane prePlane = planeGenerator.GeneratePlane(eachCurve, eachCurve.preExtrusion, out double xAxisDif_prePlane, out double yAxisDif_prePlane);
                             SMTPData preExtrudeData = new SMTPData(counter, 0, 0, MoveType.Lin, prePlane, extrude, velRatio);
                             preExtrudeData.AxisValues["E5"] = E5Val;
                             pData.Add(preExtrudeData);
                             counter++;
+                            // Store for visualization:
+                            allPlanes.Add(prePlane);
+                            allE5Values.Add(E5Val);
 
-                            //Inner points
-                            List<Point3d> innerPoints = pointStrategy.GetInnerPoints(eachCurve);
 
-                            foreach (Point3d pt in innerPoints)
+
+
+                            //Path points that are generated per each curve type
+                            var sequence = pointStrategy.GetPathPoints(eachCurve);
+
+                            foreach (var step in sequence)
                             {
-                                Plane pathPlane = planeGenerator.GeneratePlane(eachCurve, pt);
+                                Plane pathPlane = planeGenerator.GeneratePlane(eachCurve, step.Point, out double xAxisDif_pathPlane, out double yAxisDif_pathPlane);
 
-                                SMTPData pathData = new SMTPData(counter, 0, 0, MoveType.Lin, pathPlane, extrude, velRatio);
-                                pathData.Events["NozzleCooling"] = heat;
-                                //pathData.Events["NozzleCooling2"] = cool;
-                                pathData.AxisValues["E5"] = E5Val; 
+                                var smtpData = new SMTPData(counter, 0, 0, MoveType.Lin, pathPlane, 1.0f);
+                                smtpData.AxisValues["E5"] = step.E5Value;
 
-                                pData.Add(pathData);
+                                // Activate/deactivate cooling:
+                                if (step.CoolingOn) smtpData.Events["NozzleCooling"] = extrude;
+                                else smtpData.Events["NozzleCooling"] = stopCooling;
+
+                                // Activate/deactivate extrusion:
+                                if (step.ExtrudeOn) smtpData.Events["Extrude"] = extrude;
+                                else smtpData.Events["Extrude"] = stopExtrude;
+
+                                // Activate/deactivate heat:
+                                if (step.HeatOn) smtpData.Events["Heat"] = extrude;  // assuming you have Heat event
+                                else smtpData.Events["Heat"] = stopExtrude;         // or stopHeat if you define one
+
+                                pData.Add(smtpData);
                                 counter++;
+
+
+                                // Store for visualization:
+                                allPlanes.Add(pathPlane);
+                                allE5Values.Add(step.E5Value);
+                                var diffs_pathData = ToolpathPlaneConduit.GetPlaneAxisDifferences(Plane.WorldXY, pathPlane);
+                                double xAxisDif_pathData = diffs_pathData.xAxisDif;
+                                double yAxisDif_pathData = diffs_pathData.yAxisDif;
+
+                                double planeRotAngle = ToolpathPlaneConduit.GetPlaneRotationAngle(Plane.WorldXY, pathPlane);
+
+                                allXAxisDifValues.Add(xAxisDif_pathPlane);
+                                allYAxisDifValues.Add(yAxisDif_pathPlane);
+                                allPlaneRotationAngles.Add(planeRotAngle);
+
                             }
 
                             //Stop-extrusion
-                            Plane stopPlane = planeGenerator.GeneratePlane(eachCurve, eachCurve.EndPoint);
+                            Plane stopPlane = planeGenerator.GeneratePlane(eachCurve, eachCurve.EndPoint, out double xAxisDif_stopPlane, out double yAxisDif_stopPlane);
                             SMTPData stopExtrudeData = new SMTPData(counter, 0, 0, MoveType.Lin, stopPlane, stopExtrude, 1.0f);
                             stopExtrudeData.AxisValues["E5"] = E5Val;
                             pData.Add(stopExtrudeData);
                             counter++;
 
+                            // Store for visualization:
+                            allPlanes.Add(stopPlane);
+                            allE5Values.Add(E5Val);
                             allSMTPData.Add(pData);
                         }
                     }
+
+                    if (_toolpathConduit != null)
+                    {
+                        _toolpathConduit.Enabled = false;
+                        _toolpathConduit = null;
+                        Rhino.RhinoDoc.ActiveDoc.Views.Redraw();
+                    }
+
+                    // Create and enable new conduit:
+                    _toolpathConduit = new ToolpathPlaneConduit(
+                        allPlanes,
+                        allE5Values,
+                        allXAxisDifValues,
+                        allXAxisDifValues,
+                        axisSize: 7.0,
+                        showPlaneIndex: false,
+                        useE5Gradient: true
+                    );
+
+                    _toolpathConduit.Enabled = false;
+                    Rhino.RhinoDoc.ActiveDoc.Views.Redraw();
+
+                    //_toolpathConduit.Enabled = false;
+                    //_toolpathConduit = null;
+                    //Rhino.RhinoDoc.ActiveDoc.Views.Redraw();
+
 
 
                     //store all the pointdata and then instantiate the shape outside of the loop

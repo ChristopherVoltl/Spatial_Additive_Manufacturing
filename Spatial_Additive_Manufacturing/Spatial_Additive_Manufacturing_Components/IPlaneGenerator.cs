@@ -2,5 +2,5 @@
 
 public interface IPlaneGenerator
 {
-    Plane GeneratePlane(PathCurve pathCurve, Point3d referencePoint, Vector3d? optionalTangent = null);
+    Plane GeneratePlane(PathCurve pathCurve, Point3d referencePoint, out double xAxisDif, out double yAxisDif, Vector3d? optionalTangent = null);
 }
