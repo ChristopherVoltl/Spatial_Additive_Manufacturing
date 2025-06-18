@@ -75,7 +75,7 @@ namespace Spatial_Additive_Manufacturing
                     opUI.LIStyle = InOutStyle.Inactive;
                     opUI.LOStyle = InOutStyle.Inactive;
                     //opUI.ApproxDist = 0.0f;
-                    //opUI.PTP_Traverse = false;
+                    opUI.PTP_Traverse = false;
 
                     //actionstates of the extrusion operation
                     ActionState extrudeAct = opUI.SuperOperationRef.GetActionState("Extrude");
@@ -93,7 +93,7 @@ namespace Spatial_Additive_Manufacturing
 
                     ActionState PauseAct = opUI.SuperOperationRef.GetActionState("CycleWait");
                     SuperActionUI actionPauseUI = opUI.ActionControls["CycleWait"];
-                    actionPauseUI.StartValue = "6.0";
+                    actionPauseUI.StartValue = "3.0";
                     actionPauseUI.ActivationMode = ActivationStyle.PointData;
 
 
@@ -162,12 +162,15 @@ namespace Spatial_Additive_Manufacturing
                             IPlaneGenerator planeGenerator = PlaneGeneratorFactory.GetGenerator(eachCurve.Orientation);
                             IPathPointStrategy pointStrategy = PathPointStrategyFactory.GetStrategy(eachCurve);
 
-                            double E5Val = 1.0;
-                            float velRatio = 1.0f;
+                            double E5Val = 4.0;
+                            float velRatio = 0.2f;
 
                             //Pre-extrusion
                             Plane prePlane = planeGenerator.GeneratePlane(eachCurve, eachCurve.preExtrusion, out double xAxisDif_prePlane, out double yAxisDif_prePlane);
                             SMTPData preExtrudeData = new SMTPData(counter, 0, 0, MoveType.Lin, prePlane, extrude, velRatio);
+                            preExtrudeData.Events["NozzleCooling2"] = stopCooling;
+                            preExtrudeData.Events["NozzleCooling"] = stopHeat;
+
                             preExtrudeData.AxisValues["E5"] = E5Val;
                             pData.Add(preExtrudeData);
                             counter++;
@@ -185,20 +188,25 @@ namespace Spatial_Additive_Manufacturing
                             {
                                 Plane pathPlane = planeGenerator.GeneratePlane(eachCurve, step.Point, out double xAxisDif_pathPlane, out double yAxisDif_pathPlane);
 
-                                var smtpData = new SMTPData(counter, 0, 0, MoveType.Lin, pathPlane, 1.0f);
+                                velRatio = step.VelRatio;
+                                var smtpData = new SMTPData(counter, 0, 0, MoveType.Lin, pathPlane, velRatio);
                                 smtpData.AxisValues["E5"] = step.E5Value;
 
                                 // Activate/deactivate cooling:
-                                if (step.CoolingOn) smtpData.Events["NozzleCooling"] = extrude;
-                                else smtpData.Events["NozzleCooling"] = stopCooling;
+                                if (step.CoolingOn) smtpData.Events["NozzleCooling2"] = cool;
+                                else smtpData.Events["NozzleCooling2"] = stopCooling;
 
                                 // Activate/deactivate extrusion:
                                 if (step.ExtrudeOn) smtpData.Events["Extrude"] = extrude;
                                 else smtpData.Events["Extrude"] = stopExtrude;
 
                                 // Activate/deactivate heat:
-                                if (step.HeatOn) smtpData.Events["Heat"] = extrude;  // assuming you have Heat event
-                                else smtpData.Events["Heat"] = stopExtrude;         // or stopHeat if you define one
+                                if (step.HeatOn) smtpData.Events["NozzleCooling"] = heat;  
+                                else smtpData.Events["NozzleCooling"] = stopHeat;
+
+
+                                if (step.CycleWait) smtpData.Events["CycleWait"] = cycleWait;
+                                
 
                                 pData.Add(smtpData);
                                 counter++;
@@ -221,7 +229,10 @@ namespace Spatial_Additive_Manufacturing
 
                             //Stop-extrusion
                             Plane stopPlane = planeGenerator.GeneratePlane(eachCurve, eachCurve.EndPoint, out double xAxisDif_stopPlane, out double yAxisDif_stopPlane);
-                            SMTPData stopExtrudeData = new SMTPData(counter, 0, 0, MoveType.Lin, stopPlane, stopExtrude, 1.0f);
+                            SMTPData stopExtrudeData = new SMTPData(counter, 0, 0, MoveType.Lin, stopPlane, stopExtrude, 0.05f);
+                            //stopExtrudeData.Events["NozzleCooling2"] = stopCooling;
+                            stopExtrudeData.Events["Extrude"] = stopExtrude;
+                            //stopExtrudeData.Events["NozzleCooling"] = stopHeat;
                             stopExtrudeData.AxisValues["E5"] = E5Val;
                             pData.Add(stopExtrudeData);
                             counter++;
@@ -244,10 +255,8 @@ namespace Spatial_Additive_Manufacturing
                     _toolpathConduit = new ToolpathPlaneConduit(
                         allPlanes,
                         allE5Values,
-                        allXAxisDifValues,
-                        allXAxisDifValues,
-                        axisSize: 7.0,
-                        showPlaneIndex: false,
+                        axisSize: 1.0,
+                        showPlaneIndex: true,
                         useE5Gradient: true
                     );
 
@@ -409,6 +418,8 @@ namespace Spatial_Additive_Manufacturing
             
 
             WriteAllToSMT(pathCurves, Vertical_E5, Horizontal_E5, Angled_E5, Velocity_Ratio_Multiplier);
+
+            
         }
 
 

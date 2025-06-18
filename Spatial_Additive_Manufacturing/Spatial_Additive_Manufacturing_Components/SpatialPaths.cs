@@ -206,7 +206,9 @@ public class SpatialPaths
 
         var angleds = clusterIds
             .Select(id => Paths[id])
-            .Where(p => p.Orientation == PathCurve.OrientationType.AngledDown)
+            .Where(p =>
+            p.Orientation == PathCurve.OrientationType.AngledDown ||
+            p.Orientation == PathCurve.OrientationType.AngledUp)
             .ToList();
 
         foreach (var v in verticals)

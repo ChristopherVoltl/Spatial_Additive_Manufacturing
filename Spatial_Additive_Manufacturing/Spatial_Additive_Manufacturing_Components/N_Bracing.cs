@@ -215,12 +215,65 @@ namespace Spatial_Additive_Manufacturing.Spatial_Printing_Components
                 foreach (var (v, a) in chains[i])
                 {
                     tree.Add(new LineCurve(v.Line), path);
-                    tree.Add(new LineCurve(a.Line), path);
+                    if (a != null)
+                        tree.Add(new LineCurve(a.Line), path);
                 }
             }
 
             return tree;
         }
+
+        public List<List<(PathCurve Vertical, PathCurve Angled)>> TrimIntersectingTailAnglesOnly(
+        List<List<(PathCurve Vertical, PathCurve Angled)>> chains,
+        List<PathCurve> allCurves,
+        double tolerance = 1e-6)
+        {
+            var trimmedChains = new List<List<(PathCurve, PathCurve)>>();
+
+            foreach (var chain in chains)
+            {
+                if (chain.Count == 0)
+                {
+                    trimmedChains.Add(chain);
+                    continue;
+                }
+
+                var trimmedChain = new List<(PathCurve, PathCurve)>(chain);
+
+                var lastIndex = trimmedChain.Count - 1;
+                (PathCurve Vertical, PathCurve Angled) lastPair = trimmedChain[lastIndex];
+                var angledCurve = lastPair.Angled;
+
+                bool intersects = false;
+
+                foreach (var other in allCurves)
+                {
+                    if (other.Id == angledCurve.Id) continue;
+
+                    var ccx = Rhino.Geometry.Intersect.Intersection.LineLine(
+                        angledCurve.Line, other.Line, out double a, out double b, tolerance, false);
+
+                    if (ccx)
+                    {
+                        intersects = true;
+                        break;
+                    }
+                }
+
+                if (intersects)
+                {
+                    // Replace the last pair with a new one that has only the vertical line
+                    trimmedChain[lastIndex] = (lastPair.Vertical, null);
+                }
+
+                trimmedChains.Add(trimmedChain);
+            }
+
+            return trimmedChains;
+        }
+
+       
+
 
 
         protected override void SolveInstance(IGH_DataAccess DA)
@@ -271,7 +324,10 @@ namespace Spatial_Additive_Manufacturing.Spatial_Printing_Components
                 allChains.AddRange(chains);
             }
 
-            var tree = ConvertPairChainsToTree(allChains);
+            var allCurves = spatialPaths.Paths.Values.ToList();
+            var cleanedChains = TrimIntersectingTailAnglesOnly(allChains, allCurves);
+            var tree = ConvertPairChainsToTree(cleanedChains);
+            
 
             var verticalTree = new DataTree<Curve>();
             var angledTree = new DataTree<Curve>();
@@ -283,6 +339,7 @@ namespace Spatial_Additive_Manufacturing.Spatial_Printing_Components
             {
                 var pairs = spatialPaths.FindVerticalAngledPairs(cluster);
                 var chains = SortConnectedPairChains(pairs);
+                
 
                 for (int i = 0; i < chains.Count; i++)
                 {
@@ -298,6 +355,7 @@ namespace Spatial_Additive_Manufacturing.Spatial_Printing_Components
                 }
 
             }
+
 
 
 

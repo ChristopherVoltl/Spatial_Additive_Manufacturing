@@ -8,7 +8,7 @@ public class PathCurve
     public Guid Id { get; }
     public Line Line { get; }
 
-    public Point3d preExtrusion => new Point3d(Line.From.X, Line.From.Y, Line.From.Z + 3.0);
+    public Point3d preExtrusion => new Point3d(Line.From.X, Line.From.Y, Line.From.Z + 6.0);
     public Point3d StartPoint => Line.From;
     public Point3d EndPoint => Line.To;
     public Point3d MidPoint => Line.PointAt(0.5);

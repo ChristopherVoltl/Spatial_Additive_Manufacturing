@@ -70,7 +70,7 @@ public class AngledDownPlaneGenerator : IPlaneGenerator
         yAxisDif = SignedAngle(Vector3d.YAxis, yAxis, Vector3d.ZAxis);
 
         //  flip plane logic:
-        if (xAxisDif >= 90)
+        if (xAxisDif <= 90 && xAxisDif >= 45 || xAxisDif == 0)
         {
             xAxis = -xAxis;
             yAxis = -yAxis;
@@ -136,7 +136,7 @@ public class HorizontalPlaneGenerator : IPlaneGenerator
 
         Vector3d zAxis = -Vector3d.ZAxis;
 
-        Vector3d yAxis = tangent;
+        Vector3d yAxis = Vector3d.YAxis;
 
         Vector3d xAxis = Vector3d.CrossProduct(yAxis, zAxis);
         xAxis.Unitize();
