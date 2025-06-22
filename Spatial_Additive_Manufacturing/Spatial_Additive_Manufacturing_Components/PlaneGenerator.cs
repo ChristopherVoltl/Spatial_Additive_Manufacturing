@@ -51,6 +51,17 @@ public class AngledDownPlaneGenerator : IPlaneGenerator
             Transform rotation = Transform.Rotation(rotationAngle * (Math.PI / 180.0), Vector3d.CrossProduct(yAxis, Vector3d.ZAxis), pathStart);
             yAxis.Transform(rotation);
         }
+        if (pathCurve.Line.Length <= 80.0)
+        {
+            IPlaneGenerator generator = new VerticalPlaneGenerator();
+            Plane pathPlane = generator.GeneratePlane(pathCurve, referencePoint, out double xAxisDif_pathPlane, out double yAxisDif_pathPlane);
+
+            xAxisDif = xAxisDif_pathPlane;
+            yAxisDif = yAxisDif_pathPlane;
+
+            return pathPlane;
+        }
+
 
         // X and Y orientation cleanup
         Vector3d xAxis = Vector3d.CrossProduct(Vector3d.ZAxis, yAxis);

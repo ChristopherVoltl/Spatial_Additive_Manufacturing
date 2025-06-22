@@ -65,7 +65,7 @@ public static class PathPointStrategyFactory
 
             Point3d pathStart = pathCurve.StartPoint;
             Point3d pathEnd = pathCurve.EndPoint;
-            Point3d pullbackPointvert = new Point3d(pathStart.X, pathStart.Y, pathStart.Z + 6.0);
+            Point3d pullbackPointvert = new Point3d(pathStart.X, pathStart.Y, pathStart.Z + pathCurve.Line.Length / 4);
 
             // Pullback point
             Point3d pullbackPoint = new Point3d(pathStart.X, pathStart.Y, pathStart.Z);
@@ -73,7 +73,8 @@ public static class PathPointStrategyFactory
 
             Vector3d pullbackVector = pullbackDir - pathEnd;
             pullbackVector.Unitize();
-            pullbackVector *= 10.0;
+            pullbackVector *= pathCurve.Line.Length / 2.5;
+
 
             pullbackPoint.Transform(Transform.Translation(pullbackVector));
 
@@ -82,20 +83,20 @@ public static class PathPointStrategyFactory
             Point3d modifiedEndPoint = new Point3d(pathEnd.X, pathEnd.Y, pathEnd.Z + (voxelHeight * 0.5));
 
             // Build sequence:
-            float velRatio = 0.2f;
+            float velRatio = 0.05f;
 
 
             // Pullback point → extrude ON
             sequence.Add(new PathPointCommand(
-                pullbackPoint, 1.1, coolingOn: false, extrudeOn: true, heatOn: true, velRatio: velRatio, cycleWait: false));
+                pullbackPoint, 2.4, coolingOn: false, extrudeOn: true, heatOn: true, velRatio: velRatio, cycleWait: false));
 
             // Path start → extrude ON
             sequence.Add(new PathPointCommand(
-                pullbackPointvert, 1.2, coolingOn: true, extrudeOn: true, heatOn: true, velRatio: velRatio, cycleWait: false));
+                pullbackPointvert, 2.4, coolingOn: true, extrudeOn: true, heatOn: true, velRatio: velRatio, cycleWait: false));
 
             // Path start → cool ON (extrude stays ON → up to you to decide if it should flip)
             sequence.Add(new PathPointCommand(
-                pullbackPointvert, 1.2, coolingOn: true, extrudeOn: true, heatOn: true, velRatio: velRatio, cycleWait: false));
+                pullbackPointvert, 1.4, coolingOn: true, extrudeOn: true, heatOn: true, velRatio: velRatio, cycleWait: false));
 
             // Modified end → stopExtrude (extrude OFF, cooling ON)
             sequence.Add(new PathPointCommand(
@@ -124,7 +125,7 @@ public static class PathPointStrategyFactory
             double startCooling = 1.0;
             double slowExtruding = 4.0;
             double e5 = 3.0;
-            float velRatio = 0.2f;
+            float velRatio = 0.05f;
 
             Point3d startExtruding_pt = new Point3d(pathStart.X, pathStart.Y, pathStart.Z + startExtruding);
             Point3d slowExtruding_pt = new Point3d(pathEnd.X, pathEnd.Y, pathEnd.Z - slowExtruding);
@@ -218,8 +219,13 @@ public static class PathPointStrategyFactory
             curve.Domain = new Interval(0, 1);
             Point3d pointOnCurve = curve.PointAt(t);
 
+
+            Point3d pathStartEdit = new Point3d(pathStart.X, pathStart.Y, pathStart.Z + 2);
+
             // move Z + 10
             Point3d pathEndMoveZ = new Point3d(pathEnd.X, pathEnd.Y, pathEnd.Z + 10);
+            Point3d pathEndMoveZFinal = new Point3d(pathEnd.X, pathEnd.Y, pathEnd.Z + 3);
+
             Curve curveNewZ = new LineCurve(pathStart, pathEndMoveZ);
 
 
@@ -228,12 +234,14 @@ public static class PathPointStrategyFactory
             {
                 // Start point → Cooling ON, Extrude ON, E5 = 2.0
                 sequence.Add(new PathPointCommand(
-                    pathStart, 2.0, coolingOn: true, extrudeOn: true, heatOn: false, velRatio: 0.05f, cycleWait: false));
+                    pathStartEdit, 1.4, coolingOn: true, extrudeOn: true, heatOn: true, velRatio: 0.05f, cycleWait: false));
 
+                sequence.Add(new PathPointCommand(
+                    pathEndMoveZ, 1.4, coolingOn: true, extrudeOn: true, heatOn: true, velRatio: 0.05f, cycleWait: false));
 
                 // pathEnd → stopExtrude
                 sequence.Add(new PathPointCommand(
-                    pathEnd, 2.0, coolingOn: true, extrudeOn: false, heatOn: false, velRatio: 0.05f, cycleWait: false));
+                    pathEndMoveZFinal, 1.4, coolingOn: false, extrudeOn: false, heatOn: true, velRatio: 0.05f, cycleWait: false));
             }
             else // Z <= threshold
             {
@@ -244,7 +252,7 @@ public static class PathPointStrategyFactory
 
                 // pathEnd → stopExtrude
                 sequence.Add(new PathPointCommand(
-                    pathEnd, 2.0, coolingOn: false, extrudeOn: false, heatOn: false, velRatio: 0.05f, cycleWait: false));
+                    pathEnd, 1.6, coolingOn: false, extrudeOn: false, heatOn: false, velRatio: 0.05f, cycleWait: false));
             }
 
             return sequence;

@@ -55,6 +55,73 @@ namespace Spatial_Additive_Manufacturing
             //pManager.AddPointParameter("SuperShape", "SS", "SuperShape for each plane", GH_ParamAccess.list);
         }
 
+        private void AddTraversalSequence(
+        List<SMTPData> pDataList,
+        Plane pathStart,
+        Curve prevCurve,
+        ref int counter,
+        SuperEvent stopExtrude,
+        SuperEvent stopCooling,
+        SuperEvent stopHeat,
+        SuperEvent extrude,
+        List<Plane> allPlanes)
+        {
+            try
+            {
+                Point3d prevStart = prevCurve.PointAtStart;
+                Point3d prevEnd = prevCurve.PointAtEnd;
+
+                Plane endPlane = new Plane(prevEnd, -Vector3d.XAxis, Vector3d.YAxis);
+                Plane startPlane = pathStart;
+                float traverseVelRatio = 0.2f;
+
+                if (prevEnd.DistanceTo(pathStart.Origin) > 10.0)
+                {
+                    // 1. End current path
+                    var stopData = new SMTPData(counter++, 0, 0, MoveType.Lin, endPlane, stopCooling, traverseVelRatio);
+                    //stopData.AxisValues["E5"] = 1.0;
+                    stopData.Events["NozzleCooling"] = stopHeat;
+
+                    pDataList.Add(stopData);
+                    allPlanes.Add(endPlane);
+
+                    // 2. Lift vertically
+                    var liftPt = new Point3d(prevEnd.X, prevEnd.Y, prevEnd.Z + 20);
+                    var liftPlane = new Plane(liftPt, -Vector3d.XAxis, Vector3d.YAxis);
+                    var liftData = new SMTPData(counter++, 0, 0, MoveType.Lin, liftPlane, traverseVelRatio);
+                    //liftData.AxisValues["E5"] = 1.0;
+                    pDataList.Add(liftData);
+                    allPlanes.Add(liftPlane);
+
+                    // 3. Move horizontally over to next start point (same Z as lift)
+                    var traversePt = new Point3d(pathStart.Origin.X, pathStart.Origin.Y, liftPt.Z);
+                    var traversePlane = new Plane(traversePt, -Vector3d.XAxis, Vector3d.YAxis);
+                    var traverseData = new SMTPData(counter++, 0, 0, MoveType.Lin, traversePlane, traverseVelRatio);
+                    traverseData.AxisValues["E5"] = 0.4;
+                    pDataList.Add(traverseData);
+                    allPlanes.Add(traversePlane);
+                }
+                else
+                {
+                    // No traversal needed, move straight to next point
+                    var directMove = new SMTPData(counter++, 0, 0, MoveType.Lin, pathStart, traverseVelRatio);
+                    directMove.Events["NozzleCooling"] = stopHeat;
+                    directMove.Events["NozzleCooling2"] = stopCooling;
+                    pDataList.Add(directMove);
+
+                    var coolingMove = new SMTPData(counter++, 0, 0, MoveType.Lin, pathStart, stopCooling, traverseVelRatio);
+                    //coolingMove.AxisValues["E5"] = 1.0;
+                    pDataList.Add(coolingMove);
+                }
+            }
+            catch (ArgumentOutOfRangeException)
+            {
+                var recovery = new SMTPData(counter++, 0, 0, MoveType.Lin, pathStart, stopCooling, 0.1f);
+                recovery.Events["NozzleCooling"] = stopHeat;
+                recovery.Events["NozzleCooling2"] = stopCooling;
+                pDataList.Add(recovery);
+            }
+        }
 
         public void WriteAllToSMT(List<Curve> AllFGAMPData, double Vertical_E5, double Angled_E5, double Horizontal_E5, double velocity_ratio_multiplier)
         {
@@ -162,15 +229,42 @@ namespace Spatial_Additive_Manufacturing
                             IPlaneGenerator planeGenerator = PlaneGeneratorFactory.GetGenerator(eachCurve.Orientation);
                             IPathPointStrategy pointStrategy = PathPointStrategyFactory.GetStrategy(eachCurve);
 
-                            double E5Val = 4.0;
-                            float velRatio = 0.2f;
+                            double E5Val = 2.0;
+                            float velRatio = 0.05f;
+
+
 
                             //Pre-extrusion
                             Plane prePlane = planeGenerator.GeneratePlane(eachCurve, eachCurve.preExtrusion, out double xAxisDif_prePlane, out double yAxisDif_prePlane);
+
+                            //Traversal 
+                            if (j == 0 && i > 0)
+                            {
+                                Curve prevCurve = AllFGAMPData[i - 1];
+                                AddTraversalSequence(pData, prePlane, prevCurve, ref counter, stopExtrude, stopCooling, stopHeat, extrude, allPlanes);
+                            }
+
+
                             SMTPData preExtrudeData = new SMTPData(counter, 0, 0, MoveType.Lin, prePlane, extrude, velRatio);
                             preExtrudeData.Events["NozzleCooling2"] = stopCooling;
                             preExtrudeData.Events["NozzleCooling"] = stopHeat;
 
+                            if (eachCurve.Orientation == PathCurve.OrientationType.Vertical)
+                            {
+                                E5Val = Vertical_E5;
+                            }
+                            else if (eachCurve.Orientation == PathCurve.OrientationType.AngledUp)
+                            {
+                                E5Val = Angled_E5;
+                            }
+                            else if (eachCurve.Orientation == PathCurve.OrientationType.AngledDown)
+                            {
+                                E5Val = Angled_E5;
+                            }
+                            else if (eachCurve.Orientation == PathCurve.OrientationType.Horizontal)
+                            {
+                                E5Val = Horizontal_E5;
+                            }
                             preExtrudeData.AxisValues["E5"] = E5Val;
                             pData.Add(preExtrudeData);
                             counter++;
@@ -230,12 +324,12 @@ namespace Spatial_Additive_Manufacturing
                             //Stop-extrusion
                             Plane stopPlane = planeGenerator.GeneratePlane(eachCurve, eachCurve.EndPoint, out double xAxisDif_stopPlane, out double yAxisDif_stopPlane);
                             SMTPData stopExtrudeData = new SMTPData(counter, 0, 0, MoveType.Lin, stopPlane, stopExtrude, 0.05f);
-                            //stopExtrudeData.Events["NozzleCooling2"] = stopCooling;
+                            stopExtrudeData.Events["NozzleCooling2"] = stopCooling;
                             stopExtrudeData.Events["Extrude"] = stopExtrude;
-                            //stopExtrudeData.Events["NozzleCooling"] = stopHeat;
+                            stopExtrudeData.Events["NozzleCooling"] = stopHeat;
                             stopExtrudeData.AxisValues["E5"] = E5Val;
                             pData.Add(stopExtrudeData);
-                            counter++;
+                            //counter++;
 
                             // Store for visualization:
                             allPlanes.Add(stopPlane);
@@ -279,7 +373,7 @@ namespace Spatial_Additive_Manufacturing
                     for (int i = 0; i < allSMTPData.Count; i++)
                     {
                         List<SMTPData> pData = allSMTPData[i];
-                        List<SMTPData> pDataList = new List<SMTPData>();
+                        List<SMTPData> pDataList = new ();
                         pDataList.AddRange(pData);
                         smtPlugin.UserData[guid] = pDataList.ToArray();
                         SuperShape shape = SuperShape.SuperShapeFactory(guid, null, DivisionStyle.PointData, ZOrientStyle.PointData, VectorStyle.ByParam, YOrientStyle.PointData, false, 0.0, Rhino.Geometry.Plane.WorldXY);
