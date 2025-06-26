@@ -56,63 +56,52 @@ namespace Spatial_Additive_Manufacturing
         }
 
         private void AddTraversalSequence(
-        List<SMTPData> pDataList,
-        Plane pathStart,
-        Curve prevCurve,
-        ref int counter,
-        SuperEvent stopExtrude,
-        SuperEvent stopCooling,
-        SuperEvent stopHeat,
-        SuperEvent extrude,
-        List<Plane> allPlanes)
+     List<SMTPData> pDataList,
+     Plane pathStart,
+     Curve prevCurve,
+     ref int counter,
+     SuperEvent stopExtrude,
+     SuperEvent stopCooling,
+     SuperEvent stopHeat,
+     SuperEvent extrude,
+     List<Plane> allPlanes)
         {
             try
             {
-                Point3d prevStart = prevCurve.PointAtStart;
                 Point3d prevEnd = prevCurve.PointAtEnd;
 
-                Plane endPlane = new Plane(prevEnd, -Vector3d.XAxis, Vector3d.YAxis);
-                Plane startPlane = pathStart;
+                // Use the same X and Y axes as the pathStart plane
+                Vector3d xAxis = pathStart.XAxis;
+                Vector3d yAxis = pathStart.YAxis;
+
                 float traverseVelRatio = 0.2f;
 
                 if (prevEnd.DistanceTo(pathStart.Origin) > 10.0)
                 {
                     // 1. End current path
+                    Plane endPlane = new Plane(prevEnd, xAxis, yAxis);
                     var stopData = new SMTPData(counter++, 0, 0, MoveType.Lin, endPlane, stopCooling, traverseVelRatio);
-                    //stopData.AxisValues["E5"] = 1.0;
                     stopData.Events["NozzleCooling"] = stopHeat;
-
+                    //stopData.Events["Extrude"] = stopExtrude;
                     pDataList.Add(stopData);
                     allPlanes.Add(endPlane);
 
                     // 2. Lift vertically
-                    var liftPt = new Point3d(prevEnd.X, prevEnd.Y, prevEnd.Z + 20);
-                    var liftPlane = new Plane(liftPt, -Vector3d.XAxis, Vector3d.YAxis);
+                    Point3d liftPt = new Point3d(prevEnd.X, prevEnd.Y, prevEnd.Z + 70);
+                    Plane liftPlane = new Plane(liftPt, xAxis, yAxis);
                     var liftData = new SMTPData(counter++, 0, 0, MoveType.Lin, liftPlane, traverseVelRatio);
-                    //liftData.AxisValues["E5"] = 1.0;
                     pDataList.Add(liftData);
                     allPlanes.Add(liftPlane);
 
-                    // 3. Move horizontally over to next start point (same Z as lift)
-                    var traversePt = new Point3d(pathStart.Origin.X, pathStart.Origin.Y, liftPt.Z);
-                    var traversePlane = new Plane(traversePt, -Vector3d.XAxis, Vector3d.YAxis);
+                    // 3. Move horizontally to next start point at same Z as lift
+                    Point3d traversePt = new Point3d(pathStart.Origin.X, pathStart.Origin.Y, liftPt.Z);
+                    Plane traversePlane = new Plane(traversePt, xAxis, yAxis);
                     var traverseData = new SMTPData(counter++, 0, 0, MoveType.Lin, traversePlane, traverseVelRatio);
                     traverseData.AxisValues["E5"] = 0.4;
                     pDataList.Add(traverseData);
                     allPlanes.Add(traversePlane);
                 }
-                else
-                {
-                    // No traversal needed, move straight to next point
-                    var directMove = new SMTPData(counter++, 0, 0, MoveType.Lin, pathStart, traverseVelRatio);
-                    directMove.Events["NozzleCooling"] = stopHeat;
-                    directMove.Events["NozzleCooling2"] = stopCooling;
-                    pDataList.Add(directMove);
-
-                    var coolingMove = new SMTPData(counter++, 0, 0, MoveType.Lin, pathStart, stopCooling, traverseVelRatio);
-                    //coolingMove.AxisValues["E5"] = 1.0;
-                    pDataList.Add(coolingMove);
-                }
+                
             }
             catch (ArgumentOutOfRangeException)
             {

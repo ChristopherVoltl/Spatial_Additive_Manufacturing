@@ -142,12 +142,17 @@ public class HorizontalPlaneGenerator : IPlaneGenerator
 {
     public Plane GeneratePlane(PathCurve pathCurve, Point3d referencePoint, out double xAxisDif, out double yAxisDif, Vector3d? optionalTangent = null)
     {
-        Vector3d tangent = optionalTangent ?? pathCurve.Line.Direction;
-        tangent.Unitize();
-
         Vector3d zAxis = -Vector3d.ZAxis;
 
-        Vector3d yAxis = Vector3d.YAxis;
+        Vector3d toOrigin = new Vector3d(-referencePoint.X, -referencePoint.Y, -referencePoint.Z);
+        Vector3d yAxis = toOrigin;
+        yAxis.Z = 0;
+        yAxis.Unitize();
+
+        if (yAxis.IsZero)
+        {
+            yAxis = Vector3d.YAxis;
+        }
 
         Vector3d xAxis = Vector3d.CrossProduct(yAxis, zAxis);
         xAxis.Unitize();
