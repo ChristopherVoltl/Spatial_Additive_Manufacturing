@@ -74,7 +74,7 @@ namespace Spatial_Additive_Manufacturing
                 Vector3d xAxis = pathStart.XAxis;
                 Vector3d yAxis = pathStart.YAxis;
 
-                float traverseVelRatio = 0.2f;
+                float traverseVelRatio = 0.4f;
 
                 if (prevEnd.DistanceTo(pathStart.Origin) > 10.0)
                 {
