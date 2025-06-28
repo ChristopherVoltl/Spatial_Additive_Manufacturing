@@ -74,7 +74,7 @@ namespace Spatial_Additive_Manufacturing
                 Vector3d xAxis = pathStart.XAxis;
                 Vector3d yAxis = pathStart.YAxis;
 
-                float traverseVelRatio = 0.4f;
+                float traverseVelRatio = 0.8f;
 
                 if (prevEnd.DistanceTo(pathStart.Origin) > 10.0)
                 {
@@ -237,6 +237,7 @@ namespace Spatial_Additive_Manufacturing
                             SMTPData preExtrudeData = new SMTPData(counter, 0, 0, MoveType.Lin, prePlane, extrude, velRatio);
                             preExtrudeData.Events["NozzleCooling2"] = stopCooling;
                             preExtrudeData.Events["NozzleCooling"] = stopHeat;
+                            preExtrudeData.AxisValues["E5"] = E5Val;
 
                             if (eachCurve.Orientation == PathCurve.OrientationType.Vertical)
                             {
