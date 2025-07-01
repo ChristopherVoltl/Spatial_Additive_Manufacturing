@@ -74,11 +74,14 @@ namespace Spatial_Additive_Manufacturing
                 Vector3d xAxis = pathStart.XAxis;
                 Vector3d yAxis = pathStart.YAxis;
 
-                float traverseVelRatio = 0.8f;
+                float traverseVelRatio = 1.0f;
 
                 if (prevEnd.DistanceTo(pathStart.Origin) > 10.0)
                 {
                     // 1. End current path
+
+                    Point3d prevEndlift = new Point3d(prevCurve.PointAtEnd.X, prevCurve.PointAtEnd.Y, prevCurve.PointAtEnd.Z + 4.5);
+
                     Plane endPlane = new Plane(prevEnd, xAxis, yAxis);
                     var stopData = new SMTPData(counter++, 0, 0, MoveType.Lin, endPlane, stopCooling, traverseVelRatio);
                     stopData.Events["NozzleCooling"] = stopHeat;
@@ -96,7 +99,7 @@ namespace Spatial_Additive_Manufacturing
                     // 3. Move horizontally to next start point at same Z as lift
                     Point3d traversePt = new Point3d(pathStart.Origin.X, pathStart.Origin.Y, liftPt.Z);
                     Plane traversePlane = new Plane(traversePt, xAxis, yAxis);
-                    var traverseData = new SMTPData(counter++, 0, 0, MoveType.Lin, traversePlane, traverseVelRatio);
+                    var traverseData = new SMTPData(counter++, 0, 0, MoveType.Lin, traversePlane, traverseVelRatio * 0.8f);
                     traverseData.AxisValues["E5"] = 0.4;
                     pDataList.Add(traverseData);
                     allPlanes.Add(traversePlane);
@@ -136,7 +139,7 @@ namespace Spatial_Additive_Manufacturing
                     //actionstates of the extrusion operation
                     ActionState extrudeAct = opUI.SuperOperationRef.GetActionState("Extrude");
                     SuperActionUI actionUI = opUI.ActionControls["Extrude"];
-                    actionUI.ActivationMode = ActivationStyle.PathByTrigger;
+                    actionUI.ActivationMode = ActivationStyle.PointData;
 
 
                     ActionState nozzleHeatingAct = opUI.SuperOperationRef.GetActionState("NozzleCooling");
@@ -149,7 +152,7 @@ namespace Spatial_Additive_Manufacturing
 
                     ActionState PauseAct = opUI.SuperOperationRef.GetActionState("CycleWait");
                     SuperActionUI actionPauseUI = opUI.ActionControls["CycleWait"];
-                    actionPauseUI.StartValue = "3.0";
+                    actionPauseUI.StartValue = "3.5";
                     actionPauseUI.ActivationMode = ActivationStyle.PointData;
 
 
@@ -311,8 +314,20 @@ namespace Spatial_Additive_Manufacturing
 
                             }
 
+                            Plane stopPlane;
+
                             //Stop-extrusion
-                            Plane stopPlane = planeGenerator.GeneratePlane(eachCurve, eachCurve.EndPoint, out double xAxisDif_stopPlane, out double yAxisDif_stopPlane);
+                            if (eachCurve.Line.Length < 25.0)
+                            {
+                                Point3d point3D = new Point3d(eachCurve.EndPoint.X, eachCurve.EndPoint.Y, eachCurve.EndPoint.Z + 4.5);
+                                stopPlane = planeGenerator.GeneratePlane(eachCurve, point3D, out double xAxisDif_stopPlane, out double yAxisDif_stopPlane);
+                            }
+                            else
+                            {
+                                Point3d point3D = new Point3d(eachCurve.EndPoint.X, eachCurve.EndPoint.Y, eachCurve.EndPoint.Z + 2.5);
+                                stopPlane = planeGenerator.GeneratePlane(eachCurve, eachCurve.EndPoint, out double xAxisDif_stopPlane, out double yAxisDif_stopPlane);
+                            }
+                                
                             SMTPData stopExtrudeData = new SMTPData(counter, 0, 0, MoveType.Lin, stopPlane, stopExtrude, 0.05f);
                             stopExtrudeData.Events["NozzleCooling2"] = stopCooling;
                             stopExtrudeData.Events["Extrude"] = stopExtrude;
