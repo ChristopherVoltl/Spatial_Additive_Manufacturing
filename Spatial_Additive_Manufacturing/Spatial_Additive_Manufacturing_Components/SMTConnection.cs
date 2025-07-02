@@ -100,7 +100,7 @@ namespace Spatial_Additive_Manufacturing
                     Point3d traversePt = new Point3d(pathStart.Origin.X, pathStart.Origin.Y, liftPt.Z);
                     Plane traversePlane = new Plane(traversePt, xAxis, yAxis);
                     var traverseData = new SMTPData(counter++, 0, 0, MoveType.Lin, traversePlane, traverseVelRatio * 0.8f);
-                    traverseData.AxisValues["E5"] = 0.4;
+                    traverseData.AxisValues["E5"] = 2.0;
                     pDataList.Add(traverseData);
                     allPlanes.Add(traversePlane);
                 }
@@ -228,6 +228,8 @@ namespace Spatial_Additive_Manufacturing
 
                             //Pre-extrusion
                             Plane prePlane = planeGenerator.GeneratePlane(eachCurve, eachCurve.preExtrusion, out double xAxisDif_prePlane, out double yAxisDif_prePlane);
+                            
+                            //temp rotation of plane 
 
                             //Traversal 
                             if (j == 0 && i > 0)
@@ -240,7 +242,7 @@ namespace Spatial_Additive_Manufacturing
                             SMTPData preExtrudeData = new SMTPData(counter, 0, 0, MoveType.Lin, prePlane, extrude, velRatio);
                             preExtrudeData.Events["NozzleCooling2"] = stopCooling;
                             preExtrudeData.Events["NozzleCooling"] = stopHeat;
-                            preExtrudeData.AxisValues["E5"] = E5Val;
+                            
 
                             if (eachCurve.Orientation == PathCurve.OrientationType.Vertical)
                             {
@@ -319,7 +321,7 @@ namespace Spatial_Additive_Manufacturing
                             //Stop-extrusion
                             if (eachCurve.Line.Length < 25.0)
                             {
-                                Point3d point3D = new Point3d(eachCurve.EndPoint.X, eachCurve.EndPoint.Y, eachCurve.EndPoint.Z + 4.5);
+                                Point3d point3D = new Point3d(eachCurve.EndPoint.X, eachCurve.EndPoint.Y, eachCurve.EndPoint.Z + 5.5);
                                 stopPlane = planeGenerator.GeneratePlane(eachCurve, point3D, out double xAxisDif_stopPlane, out double yAxisDif_stopPlane);
                             }
                             else
@@ -328,7 +330,7 @@ namespace Spatial_Additive_Manufacturing
                                 stopPlane = planeGenerator.GeneratePlane(eachCurve, eachCurve.EndPoint, out double xAxisDif_stopPlane, out double yAxisDif_stopPlane);
                             }
                                 
-                            SMTPData stopExtrudeData = new SMTPData(counter, 0, 0, MoveType.Lin, stopPlane, stopExtrude, 0.05f);
+                            SMTPData stopExtrudeData = new SMTPData(counter, 0, 0, MoveType.Lin, stopPlane, stopExtrude, 0.15f);
                             stopExtrudeData.Events["NozzleCooling2"] = stopCooling;
                             stopExtrudeData.Events["Extrude"] = stopExtrude;
                             stopExtrudeData.Events["NozzleCooling"] = stopHeat;
