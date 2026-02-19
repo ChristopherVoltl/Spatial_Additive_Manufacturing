@@ -56,106 +56,154 @@ namespace Spatial_Additive_Manufacturing.Spatial_Printing_Components
         /// <param name="DA">The DA object is used to retrieve from inputs and store in outputs.</param>
         public class GraphLongestTrail
         {
-            // Graph representation
-            public List<Point3d> Vertices { get; private set; }
-            public List<Line> Edges { get; private set; }
-            private Dictionary<Point3d, List<Line>> adjacencyList;
-
-            public GraphLongestTrail(List<Curve> curves)
+            public class Node
             {
-                // Initialize the graph
-                Vertices = new List<Point3d>();
-                Edges = new List<Line>();
-                adjacencyList = new Dictionary<Point3d, List<Line>>();
+                public int Id;
+                public Point3d P;
+                public List<int> IncidentEdges = new List<int>();
+            }
 
-                // Build the graph from input curves
+            public class Edge
+            {
+                public int Id;
+                public int A; // node id
+                public int B; // node id
+                public Line L;
+
+                public double Length;
+                public Vector3d Dir;    // normalized
+                public double ZMin;
+                public double ZMax;
+
+                public bool IsHorizontal;
+                public bool IsVertical;
+                public bool IsAngled;
+                public int LowNode;  // node id of lower endpoint
+                public int HighNode; // node id of higher endpoint
+            }
+
+            public List<Node> Nodes { get; private set; } = new List<Node>();
+            public List<Edge> Edges { get; private set; } = new List<Edge>();
+
+            // adjacency by node id -> edge ids
+            private List<List<int>> adjacency;
+
+            private readonly double tol;
+            private readonly double cosVertical;   // cos(angle threshold)
+            private readonly double cosHorizontal; // cos(angle threshold)
+
+            // Simple spatial hash for tolerance merging
+            private readonly Dictionary<(int, int, int), List<int>> nodeBuckets = new();
+
+            public GraphLongestTrail(List<Curve> curves, double tolerance = 1e-3, double verticalDeg = 10.0, double horizontalDeg = 10.0)
+            {
+                tol = tolerance;
+
+                cosVertical = Math.Cos(RhinoMath.ToRadians(verticalDeg));
+                cosHorizontal = Math.Cos(RhinoMath.ToRadians(horizontalDeg));
+
                 BuildGraph(curves);
+
+                adjacency = new List<List<int>>(Nodes.Count);
+                for (int i = 0; i < Nodes.Count; i++) adjacency.Add(new List<int>());
+                for (int e = 0; e < Edges.Count; e++)
+                {
+                    var edge = Edges[e];
+                    adjacency[edge.A].Add(e);
+                    adjacency[edge.B].Add(e);
+                    Nodes[edge.A].IncidentEdges.Add(e);
+                    Nodes[edge.B].IncidentEdges.Add(e);
+                }
             }
 
             private void BuildGraph(List<Curve> curves)
             {
                 foreach (var curve in curves)
                 {
-                    if (curve.TryGetPolyline(out Polyline polyline) && polyline.Count == 2)
+                    if (!curve.TryGetPolyline(out Polyline pl)) continue;
+                    if (pl.Count != 2) continue;
+
+                    Point3d p0 = pl[0];
+                    Point3d p1 = pl[1];
+                    if (p0.DistanceTo(p1) < tol) continue;
+
+                    int a = GetOrCreateNode(p0);
+                    int b = GetOrCreateNode(p1);
+
+                    var line = new Line(Nodes[a].P, Nodes[b].P);
+
+                    var edge = new Edge();
+                    edge.Id = Edges.Count;
+                    edge.A = a;
+                    edge.B = b;
+                    edge.L = line;
+                    edge.Length = line.Length;
+
+                    Vector3d d = line.Direction;
+                    d.Unitize();
+                    edge.Dir = d;
+
+                    edge.ZMin = Math.Min(line.FromZ, line.ToZ);
+                    edge.ZMax = Math.Max(line.FromZ, line.ToZ);
+
+                    // classify
+                    var zAxis = Vector3d.ZAxis;
+                    double cosToZ = Math.Abs(d * zAxis); // dot product magnitude (since both unit)
+                    edge.IsVertical = cosToZ >= cosVertical;
+                    //edge.IsHorizontal = cosToZ <= Math.Sin(RhinoMath.ToRadians(horizontalDeg)); // near perpendicular to Z
+                    edge.IsAngled = !edge.IsVertical && !edge.IsHorizontal;
+
+                    // low/high endpoint
+                    if (Nodes[a].P.Z <= Nodes[b].P.Z)
                     {
-                        Point3d start = polyline[0];
-                        Point3d end = polyline[1];
-                        Line edge = new Line(start, end);
-
-                        // Add vertices
-                        if (!Vertices.Contains(start)) Vertices.Add(start);
-                        if (!Vertices.Contains(end)) Vertices.Add(end);
-
-                        // Add edge
-                        Edges.Add(edge);
-
-                        // Update adjacency list
-                        if (!adjacencyList.ContainsKey(start))
-                            adjacencyList[start] = new List<Line>();
-                        if (!adjacencyList.ContainsKey(end))
-                            adjacencyList[end] = new List<Line>();
-
-                        adjacencyList[start].Add(edge);
-                        adjacencyList[end].Add(edge);
+                        edge.LowNode = a;
+                        edge.HighNode = b;
                     }
+                    else
+                    {
+                        edge.LowNode = b;
+                        edge.HighNode = a;
+                    }
+
+                    Edges.Add(edge);
                 }
             }
 
-            // Method to find the longest trail
-            public List<Line> FindLongestTrail(TimeSpan timeout)
+            private int GetOrCreateNode(Point3d p)
             {
-                // Create a CancellationTokenSource to enforce the timeout
-                using (CancellationTokenSource cts = new CancellationTokenSource())
-                {
-                    cts.CancelAfter(timeout); // Set the time limit
+                var key = BucketKey(p);
 
-                    try
+                if (nodeBuckets.TryGetValue(key, out var candidates))
+                {
+                    foreach (int id in candidates)
                     {
-                        return FindLongestTrailInternal(cts.Token);
-                    }
-                    catch (OperationCanceledException)
-                    {
-                        Rhino.RhinoApp.WriteLine("Operation was canceled due to timeout.");
-                        return new List<Line>(); // Return an empty list if the operation times out
+                        if (Nodes[id].P.DistanceToSquared(p) <= tol * tol)
+                            return id;
                     }
                 }
+
+                // new node
+                int newId = Nodes.Count;
+                Nodes.Add(new Node { Id = newId, P = p });
+
+                if (!nodeBuckets.ContainsKey(key))
+                    nodeBuckets[key] = new List<int>();
+                nodeBuckets[key].Add(newId);
+
+                return newId;
             }
-            private List<Line> FindLongestTrailInternal(CancellationToken token)
+
+            private (int, int, int) BucketKey(Point3d p)
             {
-                List<Line> longestTrail = new List<Line>();
-                foreach (var vertex in Vertices)
-                {
-                    HashSet<Line> visitedEdges = new HashSet<Line>();
-                    List<Line> currentTrail = new List<Line>();
-                    DFS(vertex, visitedEdges, currentTrail, ref longestTrail, token);
-                }
-                return longestTrail;
+                // grid hashing with cell size = tol
+                int ix = (int)Math.Floor(p.X / tol);
+                int iy = (int)Math.Floor(p.Y / tol);
+                int iz = (int)Math.Floor(p.Z / tol);
+                return (ix, iy, iz);
             }
-            private void DFS(Point3d vertex, HashSet<Line> visitedEdges, List<Line> currentTrail, ref List<Line> longestTrail, CancellationToken token)
-            {
-                token.ThrowIfCancellationRequested(); // Check if the operation has been canceled
 
-                foreach (var edge in adjacencyList[vertex])
-                {
-                    if (!visitedEdges.Contains(edge))
-                    {
-                        visitedEdges.Add(edge);
-                        currentTrail.Add(edge);
 
-                        Point3d nextVertex = edge.From == vertex ? edge.To : edge.From;
-
-                        DFS(nextVertex, visitedEdges, currentTrail, ref longestTrail, token);
-
-                        visitedEdges.Remove(edge);
-                        currentTrail.RemoveAt(currentTrail.Count - 1);
-                    }
-                }
-
-                if (currentTrail.Count > longestTrail.Count)
-                {
-                    longestTrail = new List<Line>(currentTrail);
-                }
-            }
+        
         }
 
 
@@ -173,10 +221,10 @@ namespace Spatial_Additive_Manufacturing.Spatial_Printing_Components
             // Set a 5-second timeout
             TimeSpan timeout = TimeSpan.FromSeconds(calc_time);
 
-            List<Line> longestTrail = graph.FindLongestTrail(timeout);
+            
 
             // Set the output data
-            DA.SetDataList(0, longestTrail);
+            //DA.SetDataList(0, longestTrail);
 
 
 

@@ -11,7 +11,7 @@
   </PropertyGroup>
   
   <ItemGroup>
-    <PackageReference Include="Grasshopper" Version="8.19.25132.1001" IncludeAssets="compile;build" />
+    <PackageReference Include="Grasshopper" Version="8.26.25349.19001" IncludeAssets="compile;build" />
   </ItemGroup>
   
   <ItemGroup>
@@ -29,7 +29,6 @@
     </Reference>
     <Reference Include="SMT">
       <HintPath>..\..\..\..\Documents\SMT\Rhino 8\SMT.dll</HintPath>
-      <Private>True</Private>
     </Reference>
   </ItemGroup>
 

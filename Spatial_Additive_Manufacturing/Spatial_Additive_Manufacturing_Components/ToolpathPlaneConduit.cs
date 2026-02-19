@@ -89,7 +89,7 @@ public class ToolpathPlaneConduit : DisplayConduit
             }
 
             string e5Text = $"E5: {e5:F2}";
-            e.Display.Draw2dText(e5Text, e5Color, plane.Origin, true, 12);
+            e.Display.Draw2dText(e5Text, e5Color, plane.Origin, true, 36);
             //e.Display.DrawDot(plane.Origin, e5Text, Color.Black, e5Color);
 
             // Draw plane index (optional)

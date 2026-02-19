@@ -134,7 +134,7 @@ namespace Spatial_Additive_Manufacturing
                     opUI.LIStyle = InOutStyle.Inactive;
                     opUI.LOStyle = InOutStyle.Inactive;
                     //opUI.ApproxDist = 0.0f;
-                    opUI.PTP_Traverse = false;
+                    //opUI.PTP_Traverse = false;
 
                     //actionstates of the extrusion operation
                     ActionState extrudeAct = opUI.SuperOperationRef.GetActionState("Extrude");
@@ -201,6 +201,7 @@ namespace Spatial_Additive_Manufacturing
                     List<List<SMTPData>> allSMTPData = new();
                     for (int i = 0; i < AllFGAMPData.Count; i++)
                     {
+  
                         Polyline polyline;
                         if (AllFGAMPData[i].TryGetPolyline(out polyline))
                         {                      
@@ -210,6 +211,7 @@ namespace Spatial_Additive_Manufacturing
                             Line line = new Line(AllFGAMPData[i].PointAtStart, AllFGAMPData[i].PointAtEnd);
                         }
                         int segmentCount = polyline.SegmentCount;
+                        int crv_index = 0;
 
                         for (int j = 0; j < segmentCount; j++)
                         {
@@ -219,7 +221,7 @@ namespace Spatial_Additive_Manufacturing
                             List<SMTPData> pData = new();
 
                             IPlaneGenerator planeGenerator = PlaneGeneratorFactory.GetGenerator(eachCurve.Orientation);
-                            IPathPointStrategy pointStrategy = PathPointStrategyFactory.GetStrategy(eachCurve);
+                            IPathPointStrategy pointStrategy = PathPointStrategyFactory.GetStrategy(eachCurve, segmentCount, crv_index);
 
                             double E5Val = 2.0;
                             float velRatio = 0.05f;
@@ -239,9 +241,9 @@ namespace Spatial_Additive_Manufacturing
                             }
 
 
-                            SMTPData preExtrudeData = new SMTPData(counter, 0, 0, MoveType.Lin, prePlane, extrude, velRatio);
-                            preExtrudeData.Events["NozzleCooling2"] = stopCooling;
-                            preExtrudeData.Events["NozzleCooling"] = stopHeat;
+                            //SMTPData preExtrudeData = new SMTPData(counter, 0, 0, MoveType.Lin, prePlane, extrude, velRatio);
+                            //preExtrudeData.Events["NozzleCooling2"] = stopCooling;
+                            //preExtrudeData.Events["NozzleCooling"] = stopHeat;
                             
 
                             if (eachCurve.Orientation == PathCurve.OrientationType.Vertical)
@@ -260,18 +262,19 @@ namespace Spatial_Additive_Manufacturing
                             {
                                 E5Val = Horizontal_E5;
                             }
-                            preExtrudeData.AxisValues["E5"] = E5Val;
-                            pData.Add(preExtrudeData);
-                            counter++;
+                            //preExtrudeData.AxisValues["E5"] = E5Val;
+                            //pData.Add(preExtrudeData);
+                            //counter++;
                             // Store for visualization:
-                            allPlanes.Add(prePlane);
-                            allE5Values.Add(E5Val);
+                            //allPlanes.Add(prePlane);
+                            //allE5Values.Add(E5Val);
 
 
 
 
                             //Path points that are generated per each curve type
-                            var sequence = pointStrategy.GetPathPoints(eachCurve);
+                            var sequence = pointStrategy.GetPathPoints(eachCurve, segmentCount, crv_index);
+                            crv_index++;
 
                             foreach (var step in sequence)
                             {
@@ -335,34 +338,36 @@ namespace Spatial_Additive_Manufacturing
                             stopExtrudeData.Events["Extrude"] = stopExtrude;
                             stopExtrudeData.Events["NozzleCooling"] = stopHeat;
                             stopExtrudeData.AxisValues["E5"] = E5Val;
-                            pData.Add(stopExtrudeData);
-                            //counter++;
+                            //pData.Add(stopExtrudeData);
+                            counter++;
 
                             // Store for visualization:
                             allPlanes.Add(stopPlane);
                             allE5Values.Add(E5Val);
                             allSMTPData.Add(pData);
                         }
+
+                        
                     }
 
-                    if (_toolpathConduit != null)
+                    /*if (_toolpathConduit != null)
                     {
                         _toolpathConduit.Enabled = false;
                         _toolpathConduit = null;
                         Rhino.RhinoDoc.ActiveDoc.Views.Redraw();
-                    }
+                    }*/
 
-                    // Create and enable new conduit:
+                    /*// Create and enable new conduit:
                     _toolpathConduit = new ToolpathPlaneConduit(
                         allPlanes,
                         allE5Values,
                         axisSize: 1.0,
-                        showPlaneIndex: true,
+                        showPlaneIndex: false,
                         useE5Gradient: true
-                    );
+                    );*/
 
-                    _toolpathConduit.Enabled = false;
-                    Rhino.RhinoDoc.ActiveDoc.Views.Redraw();
+                    //_toolpathConduit.Enabled = true;
+                    //Rhino.RhinoDoc.ActiveDoc.Views.Redraw();
 
                     //_toolpathConduit.Enabled = false;
                     //_toolpathConduit = null;

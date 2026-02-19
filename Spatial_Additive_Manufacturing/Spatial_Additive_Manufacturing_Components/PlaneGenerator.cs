@@ -47,7 +47,8 @@ public class AngledDownPlaneGenerator : IPlaneGenerator
 
         if (angleToWorldZ > 45.0)
         {
-            double rotationAngle = angleToWorldZ - 35;
+            //no rotation = 0
+            double rotationAngle = angleToWorldZ;
             Transform rotation = Transform.Rotation(rotationAngle * (Math.PI / 180.0), Vector3d.CrossProduct(yAxis, Vector3d.ZAxis), pathStart);
             yAxis.Transform(rotation);
         }
