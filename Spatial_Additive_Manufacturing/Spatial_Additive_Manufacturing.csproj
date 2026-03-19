@@ -1,7 +1,7 @@
 ﻿<Project Sdk="Microsoft.NET.Sdk">
   
   <PropertyGroup>
-    <TargetFramework>net7.0-windows</TargetFramework>
+    <TargetFramework>net8.0-windows</TargetFramework>
     <Version>1.0</Version>
     <LangVersion>9.0</LangVersion>
     <Title>Spatial_Additive_Manufacturing</Title>
@@ -11,7 +11,8 @@
   </PropertyGroup>
   
   <ItemGroup>
-    <PackageReference Include="Grasshopper" Version="8.26.25349.19001" IncludeAssets="compile;build" />
+    <PackageReference Include="Grasshopper" Version="8.28.26041.11001" />
+    <PackageReference Include="RhinoCommon" Version="8.28.26041.11001" />
   </ItemGroup>
   
   <ItemGroup>
@@ -20,12 +21,6 @@
     </Reference>
     <Reference Include="GH_Util">
       <HintPath>..\..\..\..\..\..\Program Files\Rhino 8\Plug-ins\Grasshopper\GH_Util.dll</HintPath>
-    </Reference>
-    <Reference Include="Grasshopper">
-      <HintPath>..\..\..\..\..\..\Program Files\Rhino 8\Plug-ins\Grasshopper\Grasshopper.dll</HintPath>
-    </Reference>
-    <Reference Include="RhinoCommon">
-      <HintPath>..\..\..\..\..\..\Program Files\Rhino 8\System\RhinoCommon.dll</HintPath>
     </Reference>
     <Reference Include="SMT">
       <HintPath>..\..\..\..\Documents\SMT\Rhino 8\SMT.dll</HintPath>

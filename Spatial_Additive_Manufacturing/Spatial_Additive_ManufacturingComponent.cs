@@ -555,7 +555,7 @@ namespace Spatial_Additive_Manufacturing
                                     if (PrevPathEnd.DistanceTo(pathStart.Origin) > 10)
                                     {
 
-                                        pData[0] = new SMTPData(counter, 0, 0, MoveType.Lin, TraversalPlanePlaneEnd, stopExtrude, 3.0f);
+                                        pData[0] = new SMTPData(counter, MoveType.Lin, TraversalPlanePlaneEnd, stopExtrude, 3.0f);
                                         pData[0].AxisValues["E5"] = 1.0;
                                         pData[0].Events["NozzleCooling"] = stopCooling;
                                         allPlanes.Add(TraversalPlanePlaneEnd);
@@ -566,7 +566,7 @@ namespace Spatial_Additive_Manufacturing
                                         //move end point 10mm vertically
                                         Point3d TraversalPath = new Point3d(PrevPathEnd.X, PrevPathEnd.Y, PrevPathEnd.Z + 30);
                                         Plane TraversalPlane = new Plane(TraversalPath, -Vector3d.XAxis, Vector3d.YAxis);
-                                        pData[1] = new SMTPData(counter, 0, 0, MoveType.Lin, TraversalPlane, 2.0f);
+                                        pData[1] = new SMTPData(counter, MoveType.Lin, TraversalPlane, 2.0f);
                                         pData[1].AxisValues["E5"] = 1.0;
                                         allPlanes.Add(TraversalPlane);
                                         pDataList.Add(pData[1]);
@@ -575,7 +575,7 @@ namespace Spatial_Additive_Manufacturing
                                         //move to loction above the current curve at the same Z height of TraversalPath
                                         Point3d TraversalPathEnd = new Point3d(pathStart.Origin.X, pathStart.Origin.Y, TraversalPath.Z);
                                         Plane TraversalPathEndPlane = new Plane(TraversalPathEnd, -Vector3d.XAxis, Vector3d.YAxis);
-                                        pData[2] = new SMTPData(counter, 0, 0, MoveType.Lin, TraversalPathEndPlane, stopExtrude, 3.0f);
+                                        pData[2] = new SMTPData(counter, MoveType.Lin, TraversalPathEndPlane, stopExtrude, 3.0f);
                                         pData[2].AxisValues["E5"] = 1.0;
                                         allPlanes.Add(TraversalPathEndPlane);
                                         pDataList.Add(pData[2]);
@@ -583,13 +583,13 @@ namespace Spatial_Additive_Manufacturing
                                     }
                                     else
                                     {
-                                        pData[0] = new SMTPData(counter, 0, 0, MoveType.Lin, startExtrudingPlane, stopExtrude, 3.0f);
+                                        pData[0] = new SMTPData(counter, MoveType.Lin, startExtrudingPlane, stopExtrude, 3.0f);
                                         pData[0].AxisValues["E5"] = 1.0;
 
                                         pDataList.Add(pData[0]);
                                         counter++;
 
-                                        pData[1] = new SMTPData(counter, 0, 0, MoveType.Lin, startExtrudingPlane, stopCooling, 3.0f);
+                                        pData[1] = new SMTPData(counter, MoveType.Lin, startExtrudingPlane, stopCooling, 3.0f);
                                         pData[1].AxisValues["E5"] = 1.0;
                                         pDataList.Add(pData[1]);
                                         counter++;
@@ -597,7 +597,7 @@ namespace Spatial_Additive_Manufacturing
                                 }
                                 catch (ArgumentOutOfRangeException)
                                 {
-                                    pData[0] = new SMTPData(counter, 0, 0, MoveType.Lin, startExtrudingPlane, stopExtrude, 3.0f);
+                                    pData[0] = new SMTPData(counter, MoveType.Lin, startExtrudingPlane, stopExtrude, 3.0f);
                                     pData[0].AxisValues["E5"] = 1.0;
                                     pData[0].Events["NozzleCooling"] = stopCooling;
                                     pDataList.Add(pData[0]);
@@ -610,7 +610,7 @@ namespace Spatial_Additive_Manufacturing
                                 Circle circle = new Circle(startExtrudingPlane, 1);
 
                                 //start origin of extrusion path
-                                pData[3] = new SMTPData(counter, 0, 0, MoveType.Lin, startExtrudingPlane, 3.0f);
+                                pData[3] = new SMTPData(counter, MoveType.Lin, startExtrudingPlane, 3.0f);
                                 pData[3].AxisValues["E5"] = 2.4;
                                 pDataList.Add(pData[3]);
                                 counter++;
@@ -624,7 +624,7 @@ namespace Spatial_Additive_Manufacturing
                                 {
                                     Plane cirPath = circlePathPlanes[k];
 
-                                    pData[4] = new SMTPData(counter, 0, 0, MoveType.Lin, cirPath, 0.1f);
+                                    pData[4] = new SMTPData(counter, MoveType.Lin, cirPath, 0.1f);
                                     //pData[4].AxisValues["E5"] = 2.4;
                                     pData[4].Events["Extrude"] = extrude;
 
@@ -633,7 +633,7 @@ namespace Spatial_Additive_Manufacturing
                                     allPlanes.Add(cirPath);
                                     counter++;
                                 }
-                                pData[5] = new SMTPData(counter, 0, 0, MoveType.Lin, startExtrudingPlane, 0.5f);
+                                pData[5] = new SMTPData(counter, MoveType.Lin, startExtrudingPlane, 0.5f);
                                 //pData[5].Events["NozzleCooling"] = cool;
 
                                 pData[5].AxisValues["E5"] = 2.4;
@@ -643,7 +643,7 @@ namespace Spatial_Additive_Manufacturing
                                 counter++;
 
 
-                                pData[6] = new SMTPData(counter, 0, 0, MoveType.Lin, startCooling_plane, 0.075f);
+                                pData[6] = new SMTPData(counter, MoveType.Lin, startCooling_plane, 0.075f);
                                 pData[6].Events["NozzleCooling"] = cool;
                                 pData[6].AxisValues["E5"] = 2.4;
                                 pData[6].Events["Extrude"] = extrude;
@@ -653,7 +653,7 @@ namespace Spatial_Additive_Manufacturing
                                 counter++;
 
 
-                                pData[7] = new SMTPData(counter, 0, 0, MoveType.Lin, stopExtrudingPlane, 0.075f);
+                                pData[7] = new SMTPData(counter, MoveType.Lin, stopExtrudingPlane, 0.075f);
                                 pData[7].AxisValues["E5"] = 2.4;
                                 pData[7].Events["Extrude"] = stopExtrude;
                                 pDataList.Add(pData[7]);
@@ -662,7 +662,7 @@ namespace Spatial_Additive_Manufacturing
 
                                 //doc.Objects.AddCircle(circle);
                                 //doc.Views.Redraw();
-                                pData[8] = new SMTPData(counter, 0, 0, MoveType.Lin, stopExtrudingPlane, 0.075f);
+                                pData[8] = new SMTPData(counter, MoveType.Lin, stopExtrudingPlane, 0.075f);
                                 //pData[7].Events["Extrude"] = stopExtrude;
                                 pData[8].Events["CycleWait"] = cycleWait;
 
@@ -670,7 +670,7 @@ namespace Spatial_Additive_Manufacturing
                                 pDataList.Add(pData[8]);
                                 counter++;
 
-                                pData[9] = new SMTPData(counter, 0, 0, MoveType.Lin, stopExtrudingPlane, 0.075f);
+                                pData[9] = new SMTPData(counter, MoveType.Lin, stopExtrudingPlane, 0.075f);
                                 pData[9].AxisValues["E5"] = 2.4;
                                 pData[9].Events["Extrude"] = extrude;
 
@@ -680,7 +680,7 @@ namespace Spatial_Additive_Manufacturing
                                 pDataList.Add(pData[9]);
                                 counter++;
 
-                                pData[10] = new SMTPData(counter, 0, 0, MoveType.Lin, pathEnd, 0.075f);
+                                pData[10] = new SMTPData(counter, MoveType.Lin, pathEnd, 0.075f);
                                 pData[10].AxisValues["E5"] = 2.4;
                                 pData[10].Events["Extrude"] = stopExtrude;
 
@@ -829,7 +829,7 @@ namespace Spatial_Additive_Manufacturing
                                     if (PrevPathEnd.DistanceTo(pathStart.Origin) > 10)
                                     {
 
-                                        pData[0] = new SMTPData(counter, 0, 0, MoveType.Lin, TraversalPlanePlaneEnd, stopExtrude, 3.0f);
+                                        pData[0] = new SMTPData(counter, MoveType.Lin, TraversalPlanePlaneEnd, stopExtrude, 3.0f);
                                         pData[0].AxisValues["E5"] = 1.0;
                                         pData[0].Events["NozzleCooling"] = stopCooling;
                                         allPlanes.Add(TraversalPlanePlaneEnd);
@@ -840,7 +840,7 @@ namespace Spatial_Additive_Manufacturing
                                         //move end point 10mm vertically
                                         Point3d TraversalPath = new Point3d(PrevPathEnd.X, PrevPathEnd.Y, PrevPathEnd.Z + 30);
                                         Plane TraversalPlane = new Plane(TraversalPath, -Vector3d.XAxis, Vector3d.YAxis);
-                                        pData[1] = new SMTPData(counter, 0, 0, MoveType.Lin, TraversalPlane, 3.0f);
+                                        pData[1] = new SMTPData(counter, MoveType.Lin, TraversalPlane, 3.0f);
                                         allPlanes.Add(TraversalPlane);
                                         pDataList.Add(pData[1]);
                                         counter++;
@@ -848,27 +848,27 @@ namespace Spatial_Additive_Manufacturing
                                         //move to loction above the current curve at the same Z height of TraversalPath
                                         Point3d TraversalPathEnd = new Point3d(pathStart.Origin.X, pathStart.Origin.Y, TraversalPath.Z);
                                         Plane TraversalPathEndPlane = new Plane(TraversalPathEnd, -Vector3d.XAxis, Vector3d.YAxis);
-                                        pData[2] = new SMTPData(counter, 0, 0, MoveType.Lin, TraversalPathEndPlane, stopExtrude, 3.0f);
+                                        pData[2] = new SMTPData(counter, MoveType.Lin, TraversalPathEndPlane, stopExtrude, 3.0f);
                                         allPlanes.Add(TraversalPathEndPlane);
                                         pDataList.Add(pData[2]);
                                         counter++;
                                     }
                                     else
                                     {
-                                        pData[0] = new SMTPData(counter, 0, 0, MoveType.Lin, pathStart, stopExtrude, 3.0f);
+                                        pData[0] = new SMTPData(counter, MoveType.Lin, pathStart, stopExtrude, 3.0f);
                                         pData[0].AxisValues["E5"] = 1.0;
 
                                         pDataList.Add(pData[0]);
                                         counter++;
 
-                                        pData[1] = new SMTPData(counter, 0, 0, MoveType.Lin, pathStart, stopCooling, 3.0f);
+                                        pData[1] = new SMTPData(counter, MoveType.Lin, pathStart, stopCooling, 3.0f);
                                         pDataList.Add(pData[1]);
                                         counter++;
                                     }
                                 }
                                 catch (ArgumentOutOfRangeException)
                                 {
-                                    pData[0] = new SMTPData(counter, 0, 0, MoveType.Lin, pathStart, stopExtrude, 3.0f);
+                                    pData[0] = new SMTPData(counter, MoveType.Lin, pathStart, stopExtrude, 3.0f);
                                     pData[0].AxisValues["E5"] = 1.0;
                                     pData[0].Events["NozzleCooling"] = stopCooling;
                                     pDataList.Add(pData[0]);
@@ -879,7 +879,7 @@ namespace Spatial_Additive_Manufacturing
                                 Circle circle = new Circle(startExtrudingPlane, 1);
 
                                 //start origin of extrusion path
-                                pData[3] = new SMTPData(counter, 0, 0, MoveType.Lin, startExtrudingPlane, 3.0f);
+                                pData[3] = new SMTPData(counter, MoveType.Lin, startExtrudingPlane, 3.0f);
                                 pData[3].AxisValues["E5"] = 2.4;
                                 pDataList.Add(pData[3]);
                                 counter++;
@@ -893,7 +893,7 @@ namespace Spatial_Additive_Manufacturing
                                 {
                                     Plane cirPath = circlePathPlanes[k];
 
-                                    pData[4] = new SMTPData(counter, 0, 0, MoveType.Lin, cirPath, 0.1f);
+                                    pData[4] = new SMTPData(counter, MoveType.Lin, cirPath, 0.1f);
                                     pData[4].AxisValues["E5"] = 2.4;
                                     pData[4].Events["Extrude"] = extrude;
 
@@ -902,7 +902,7 @@ namespace Spatial_Additive_Manufacturing
                                     allPlanes.Add(cirPath);
                                     counter++;
                                 }
-                                pData[5] = new SMTPData(counter, 0, 0, MoveType.Lin, startExtrudingPlane, 0.5f);
+                                pData[5] = new SMTPData(counter, MoveType.Lin, startExtrudingPlane, 0.5f);
                                 //pData[5].Events["NozzleCooling"] = cool;
                                 pData[5].Events["Extrude"] = extrude;
                                 pData[5].AxisValues["E5"] = 2.4;
@@ -911,7 +911,7 @@ namespace Spatial_Additive_Manufacturing
                                 counter++;
 
 
-                                pData[6] = new SMTPData(counter, 0, 0, MoveType.Lin, startCooling_plane, 0.075f);
+                                pData[6] = new SMTPData(counter, MoveType.Lin, startCooling_plane, 0.075f);
                                 pData[6].Events["NozzleCooling"] = cool;
 
                                 pDataList.Add(pData[6]);
@@ -919,7 +919,7 @@ namespace Spatial_Additive_Manufacturing
                                 counter++;
 
 
-                                pData[7] = new SMTPData(counter, 0, 0, MoveType.Lin, stopExtrudingPlane, 0.075f);
+                                pData[7] = new SMTPData(counter, MoveType.Lin, stopExtrudingPlane, 0.075f);
                                 pData[7].Events["Extrude"] = stopExtrude;
                                 pDataList.Add(pData[7]);
                                 allPlanes.Add(stopExtrudingPlane);
@@ -927,7 +927,7 @@ namespace Spatial_Additive_Manufacturing
 
                                 //doc.Objects.AddCircle(circle);
                                 //doc.Views.Redraw();
-                                pData[8] = new SMTPData(counter, 0, 0, MoveType.Lin, stopExtrudingPlane, 0.075f);
+                                pData[8] = new SMTPData(counter, MoveType.Lin, stopExtrudingPlane, 0.075f);
                                 //pData[7].Events["Extrude"] = stopExtrude;
                                 pData[8].Events["CycleWait"] = cycleWait;
 
@@ -935,7 +935,7 @@ namespace Spatial_Additive_Manufacturing
                                 pDataList.Add(pData[8]);
                                 counter++;
 
-                                pData[9] = new SMTPData(counter, 0, 0, MoveType.Lin, stopExtrudingPlane, 0.075f);
+                                pData[9] = new SMTPData(counter, MoveType.Lin, stopExtrudingPlane, 0.075f);
                                 pData[9].Events["Extrude"] = extrude;
 
 
@@ -943,7 +943,7 @@ namespace Spatial_Additive_Manufacturing
                                 pDataList.Add(pData[9]);
                                 counter++;
 
-                                pData[10] = new SMTPData(counter, 0, 0, MoveType.Lin, pathEnd, 0.075f);
+                                pData[10] = new SMTPData(counter, MoveType.Lin, pathEnd, 0.075f);
                                 pData[10].Events["Extrude"] = stopExtrude;
 
                                 //allPlanes.Add(pathEnd);
@@ -1060,7 +1060,7 @@ namespace Spatial_Additive_Manufacturing
                                 if (PrevPathEnd.DistanceTo(pathStart.Origin) > 10)
                                 {
 
-                                    pData[0] = new SMTPData(counter, 0, 0, MoveType.Lin, TraversalPlanePlaneEnd, stopExtrude, 3.0f);
+                                    pData[0] = new SMTPData(counter, MoveType.Lin, TraversalPlanePlaneEnd, stopExtrude, 3.0f);
                                     pData[0].AxisValues["E5"] = 1.0;
                                     pData[0].Events["NozzleCooling"] = stopCooling;
                                     allPlanes.Add(TraversalPlanePlaneEnd);
@@ -1071,7 +1071,7 @@ namespace Spatial_Additive_Manufacturing
                                     //move end point 10mm vertically
                                     Point3d TraversalPath = new Point3d(PrevPathEnd.X, PrevPathEnd.Y, PrevPathEnd.Z + 20);
                                     Plane TraversalPlane = new Plane(TraversalPath, -Vector3d.XAxis, Vector3d.YAxis);
-                                    pData[1] = new SMTPData(counter, 0, 0, MoveType.Lin, TraversalPlane, 2.0f);
+                                    pData[1] = new SMTPData(counter, MoveType.Lin, TraversalPlane, 2.0f);
                                     pData[1].AxisValues["E5"] = 1.0;
                                     allPlanes.Add(TraversalPlane);
                                     pDataList.Add(pData[1]);
@@ -1080,7 +1080,7 @@ namespace Spatial_Additive_Manufacturing
                                     //move to loction above the current curve at the same Z height of TraversalPath
                                     Point3d TraversalPathEnd = new Point3d(pathStart.Origin.X, pathStart.Origin.Y, TraversalPath.Z);
                                     Plane TraversalPathEndPlane = new Plane(TraversalPathEnd, -Vector3d.XAxis, Vector3d.YAxis);
-                                    pData[2] = new SMTPData(counter, 0, 0, MoveType.Lin, TraversalPathEndPlane, stopExtrude, 3.0f);
+                                    pData[2] = new SMTPData(counter, MoveType.Lin, TraversalPathEndPlane, stopExtrude, 3.0f);
                                     pData[2].AxisValues["E5"] = 1.0;
                                     allPlanes.Add(TraversalPathEndPlane);
                                     pDataList.Add(pData[2]);
@@ -1088,13 +1088,13 @@ namespace Spatial_Additive_Manufacturing
                                 }
                                 else
                                 {
-                                    pData[0] = new SMTPData(counter, 0, 0, MoveType.Lin, pathStart, stopExtrude, 3.0f);
+                                    pData[0] = new SMTPData(counter, MoveType.Lin, pathStart, stopExtrude, 3.0f);
                                     pData[0].AxisValues["E5"] = 1.0;
 
                                     pDataList.Add(pData[0]);
                                     counter++;
 
-                                    pData[1] = new SMTPData(counter, 0, 0, MoveType.Lin, pathStart, stopCooling, 3.0f);
+                                    pData[1] = new SMTPData(counter, MoveType.Lin, pathStart, stopCooling, 3.0f);
                                     pData[1].AxisValues["E5"] = 1.0;
                                     pDataList.Add(pData[1]);
                                     counter++;
@@ -1102,7 +1102,7 @@ namespace Spatial_Additive_Manufacturing
                             }
                             catch (ArgumentOutOfRangeException)
                             {
-                                pData[0] = new SMTPData(counter, 0, 0, MoveType.Lin, pathStart, stopExtrude, 3.0f);
+                                pData[0] = new SMTPData(counter, MoveType.Lin, pathStart, stopExtrude, 3.0f);
                                 pData[0].AxisValues["E5"] = 1.0;
                                 pData[0].Events["NozzleCooling"] = stopCooling;
                                 pDataList.Add(pData[0]);
@@ -1114,32 +1114,32 @@ namespace Spatial_Additive_Manufacturing
                             //created a motion that extrudes the opposite direction of the path 
                             int pdatacount = 0;
 
-                            pData[pdatacount] = new SMTPData(counter, 0, 0, MoveType.Lin, pullbackPlane, extrude, 0.7f);
+                            pData[pdatacount] = new SMTPData(counter, MoveType.Lin, pullbackPlane, extrude, 0.7f);
                             pData[pdatacount].AxisValues["E5"] = 1.1;
                             pDataList.Add(pData[pdatacount]);
                             allPlanes.Add(pullbackPlane);
                             counter++;
                             pdatacount++;
 
-                            pData[pdatacount] = new SMTPData(counter, 0, 0, MoveType.Lin, planeAtStart, extrude, 0.7f);
+                            pData[pdatacount] = new SMTPData(counter, MoveType.Lin, planeAtStart, extrude, 0.7f);
                             pData[pdatacount].AxisValues["E5"] = 2.4;
                             pDataList.Add(pData[pdatacount]);
                             counter++;
                             pdatacount++;
 
-                            pData[pdatacount] = new SMTPData(counter, 0, 0, MoveType.Lin, planeAtStart, cool, 0.7f);
+                            pData[pdatacount] = new SMTPData(counter, MoveType.Lin, planeAtStart, cool, 0.7f);
                             pDataList.Add(pData[pdatacount]);
                             counter++;
                             pdatacount++;
 
                             //create a point above the end point of the path to make the extrusion
-                            pData[pdatacount] = new SMTPData(counter, 0, 0, MoveType.Lin, modifiedEndPlane, stopExtrude, 0.7f);
+                            pData[pdatacount] = new SMTPData(counter, MoveType.Lin, modifiedEndPlane, stopExtrude, 0.7f);
                             pData[pdatacount].AxisValues["E5"] = 1.2;
                             pDataList.Add(pData[pdatacount]);
                             counter++;
                             pdatacount++;
 
-                            pData[pdatacount] = new SMTPData(counter, 0, 0, MoveType.Lin, planeAtEnd, stopCooling, 0.7f);
+                            pData[pdatacount] = new SMTPData(counter, MoveType.Lin, planeAtEnd, stopCooling, 0.7f);
                             pData[pdatacount].AxisValues["E5"] = 1.2;
                             pDataList.Add(pData[pdatacount]);
                             counter++;
@@ -1204,7 +1204,7 @@ namespace Spatial_Additive_Manufacturing
                                 if (PrevPathEnd.DistanceTo(pathStart.Origin) > 10)
                                 {
 
-                                    pData[0] = new SMTPData(counter, 0, 0, MoveType.Lin, TraversalPlanePlaneEnd, stopExtrude, 3.0f);
+                                    pData[0] = new SMTPData(counter, MoveType.Lin, TraversalPlanePlaneEnd, stopExtrude, 3.0f);
                                     pData[0].AxisValues["E5"] = 1.0;
                                     pData[0].Events["NozzleCooling"] = stopCooling;
                                     allPlanes.Add(TraversalPlanePlaneEnd);
@@ -1215,7 +1215,7 @@ namespace Spatial_Additive_Manufacturing
                                     //move end point 10mm vertically
                                     Point3d TraversalPath = new Point3d(PrevPathEnd.X, PrevPathEnd.Y, PrevPathEnd.Z + 20);
                                     Plane TraversalPlane = new Plane(TraversalPath, -Vector3d.XAxis, Vector3d.YAxis);
-                                    pData[1] = new SMTPData(counter, 0, 0, MoveType.Lin, TraversalPlane, 2.0f);
+                                    pData[1] = new SMTPData(counter, MoveType.Lin, TraversalPlane, 2.0f);
                                     pData[1].AxisValues["E5"] = 1.0;
                                     allPlanes.Add(TraversalPlane);
                                     pDataList.Add(pData[1]);
@@ -1224,7 +1224,7 @@ namespace Spatial_Additive_Manufacturing
                                     //move to loction above the current curve at the same Z height of TraversalPath
                                     Point3d TraversalPathEnd = new Point3d(pathStart.Origin.X, pathStart.Origin.Y, TraversalPath.Z);
                                     Plane TraversalPathEndPlane = new Plane(TraversalPathEnd, -Vector3d.XAxis, Vector3d.YAxis);
-                                    pData[2] = new SMTPData(counter, 0, 0, MoveType.Lin, TraversalPathEndPlane, extrude, 3.0f);
+                                    pData[2] = new SMTPData(counter, MoveType.Lin, TraversalPathEndPlane, extrude, 3.0f);
                                     pData[2].AxisValues["E5"] = 0.4;
                                     allPlanes.Add(TraversalPathEndPlane);
                                     pDataList.Add(pData[2]);
@@ -1232,13 +1232,13 @@ namespace Spatial_Additive_Manufacturing
                                 }
                                 else
                                 {
-                                    pData[0] = new SMTPData(counter, 0, 0, MoveType.Lin, pathStart, stopExtrude, 3.0f);
+                                    pData[0] = new SMTPData(counter, MoveType.Lin, pathStart, stopExtrude, 3.0f);
                                     pData[0].AxisValues["E5"] = 1.0;
 
                                     pDataList.Add(pData[0]);
                                     counter++;
 
-                                    pData[1] = new SMTPData(counter, 0, 0, MoveType.Lin, pathStart, stopCooling, 3.0f);
+                                    pData[1] = new SMTPData(counter, MoveType.Lin, pathStart, stopCooling, 3.0f);
                                     pData[1].AxisValues["E5"] = 1.0;
                                     pDataList.Add(pData[1]);
                                     counter++;
@@ -1246,7 +1246,7 @@ namespace Spatial_Additive_Manufacturing
                             }
                             catch (ArgumentOutOfRangeException)
                             {
-                                pData[0] = new SMTPData(counter, 0, 0, MoveType.Lin, pathStart, stopExtrude, 3.0f);
+                                pData[0] = new SMTPData(counter, MoveType.Lin, pathStart, stopExtrude, 3.0f);
                                 pData[0].AxisValues["E5"] = 1.0;
                                 pData[0].Events["NozzleCooling"] = stopCooling;
                                 pDataList.Add(pData[0]);
@@ -1258,7 +1258,7 @@ namespace Spatial_Additive_Manufacturing
                             if (pointOnCurve.Z > zHeight_test)
                             {
                                 // Loop through each plane in the list
-                                pData[3] = new SMTPData(counter, 0, 0, MoveType.Lin, pathStart, cool, 3.0f);
+                                pData[3] = new SMTPData(counter, MoveType.Lin, pathStart, cool, 3.0f);
 
                                 pData[3].Events["Extrude"] = extrude;
                                 pDataList.Add(pData[3]);
@@ -1270,7 +1270,7 @@ namespace Spatial_Additive_Manufacturing
 
                                     Plane path = pathZModifiedPlanes[l];
 
-                                    pData[4] = new SMTPData(counter, 0, 0, MoveType.Lin, pathZModifiedPlanes[l], 0.5f);
+                                    pData[4] = new SMTPData(counter, MoveType.Lin, pathZModifiedPlanes[l], 0.5f);
                                     pData[4].AxisValues["E5"] = 2.0;
 
                                     pDataList.Add(pData[4]);
@@ -1278,7 +1278,7 @@ namespace Spatial_Additive_Manufacturing
                                     counter++;
                                 }
 
-                                pData[5] = new SMTPData(counter, 0, 0, MoveType.Lin, pathEnd, stopExtrude, 0.5f);
+                                pData[5] = new SMTPData(counter, MoveType.Lin, pathEnd, stopExtrude, 0.5f);
                                 pData[5].AxisValues["E5"] = 2.0;
                                 pDataList.Add(pData[5]);
                                 printedPath.Add(pathCurves[j]);
@@ -1288,7 +1288,7 @@ namespace Spatial_Additive_Manufacturing
                             else
                             {
                                 // Loop through each plane in the list
-                                pData[3] = new SMTPData(counter, 0, 0, MoveType.Lin, pathStart, stopCooling, 0.5f);
+                                pData[3] = new SMTPData(counter, MoveType.Lin, pathStart, stopCooling, 0.5f);
                                 pData[3].Events["Extrude"] = extrude;
                                 pData[3].AxisValues["E5"] = 1.6;
 
@@ -1299,7 +1299,7 @@ namespace Spatial_Additive_Manufacturing
 
                                     Plane path = crvPathPlanes[l];
 
-                                    pData[4] = new SMTPData(counter, 0, 0, MoveType.Lin, crvPathPlanes[l], 0.5f);
+                                    pData[4] = new SMTPData(counter, MoveType.Lin, crvPathPlanes[l], 0.5f);
                                     pData[4].AxisValues["E5"] = 1.6;
 
                                     pDataList.Add(pData[4]);
@@ -1307,7 +1307,7 @@ namespace Spatial_Additive_Manufacturing
                                     counter++;
                                 }
 
-                                pData[5] = new SMTPData(counter, 0, 0, MoveType.Lin, pathEnd, stopExtrude, 0.5f);
+                                pData[5] = new SMTPData(counter, MoveType.Lin, pathEnd, stopExtrude, 0.5f);
                                 pData[5].AxisValues["E5"] = 2.0;
                                 pDataList.Add(pData[5]);
                                 counter++;
@@ -1400,7 +1400,7 @@ namespace Spatial_Additive_Manufacturing
                                 if (PrevPathEnd.DistanceTo(pathStart.Origin) > 10)
                                 {
 
-                                    pData[pdatacount] = new SMTPData(counter, 0, 0, MoveType.Lin, TraversalPlanePlaneEnd, stopExtrude, 3.0f);
+                                    pData[pdatacount] = new SMTPData(counter, MoveType.Lin, TraversalPlanePlaneEnd, stopExtrude, 3.0f);
                                     pData[pdatacount].AxisValues["E5"] = 1.0;
                                     pData[pdatacount].Events["NozzleCooling"] = stopCooling;
                                     allPlanes.Add(TraversalPlanePlaneEnd);
@@ -1412,7 +1412,7 @@ namespace Spatial_Additive_Manufacturing
                                     //move end point 10mm vertically
                                     Point3d TraversalPath = new Point3d(PrevPathEnd.X, PrevPathEnd.Y, PrevPathEnd.Z + 30);
                                     Plane TraversalPlane = new Plane(TraversalPath, -Vector3d.XAxis, Vector3d.YAxis);
-                                    pData[pdatacount] = new SMTPData(counter, 0, 0, MoveType.Lin, TraversalPlane, 2.0f);
+                                    pData[pdatacount] = new SMTPData(counter, MoveType.Lin, TraversalPlane, 2.0f);
                                     pData[pdatacount].AxisValues["E5"] = 1.0;
                                     allPlanes.Add(TraversalPlane);
                                     pDataList.Add(pData[1]);
@@ -1422,7 +1422,7 @@ namespace Spatial_Additive_Manufacturing
                                     //move to loction above the current curve at the same Z height of TraversalPath
                                     Point3d TraversalPathEnd = new Point3d(pathStart.Origin.X, pathStart.Origin.Y, TraversalPath.Z);
                                     Plane TraversalPathEndPlane = new Plane(TraversalPathEnd, -Vector3d.XAxis, Vector3d.YAxis);
-                                    pData[pdatacount] = new SMTPData(counter, 0, 0, MoveType.Lin, TraversalPathEndPlane, stopExtrude, 3.0f);
+                                    pData[pdatacount] = new SMTPData(counter, MoveType.Lin, TraversalPathEndPlane, stopExtrude, 3.0f);
                                     pData[pdatacount].AxisValues["E5"] = 1.0;
                                     allPlanes.Add(TraversalPathEndPlane);
                                     pDataList.Add(pData[2]);
@@ -1431,14 +1431,14 @@ namespace Spatial_Additive_Manufacturing
                                 }
                                 else
                                 {
-                                    pData[pdatacount] = new SMTPData(counter, 0, 0, MoveType.Lin, startExtrudingPlane, stopExtrude, 3.0f);
+                                    pData[pdatacount] = new SMTPData(counter, MoveType.Lin, startExtrudingPlane, stopExtrude, 3.0f);
                                     pData[pdatacount].AxisValues["E5"] = 1.0;
 
                                     pDataList.Add(pData[0]);
                                     counter++;
                                     pdatacount++;
 
-                                    pData[pdatacount] = new SMTPData(counter, 0, 0, MoveType.Lin, startExtrudingPlane, stopCooling, 3.0f);
+                                    pData[pdatacount] = new SMTPData(counter, MoveType.Lin, startExtrudingPlane, stopCooling, 3.0f);
                                     pData[pdatacount].AxisValues["E5"] = 1.0;
                                     pDataList.Add(pData[1]);
                                     counter++;
@@ -1447,7 +1447,7 @@ namespace Spatial_Additive_Manufacturing
                             }
                             catch (ArgumentOutOfRangeException)
                             {
-                                pData[pdatacount] = new SMTPData(counter, 0, 0, MoveType.Lin, startExtrudingPlane, stopExtrude, 3.0f);
+                                pData[pdatacount] = new SMTPData(counter, MoveType.Lin, startExtrudingPlane, stopExtrude, 3.0f);
                                 pData[pdatacount].AxisValues["E5"] = 1.0;
                                 pData[pdatacount].Events["NozzleCooling"] = stopCooling;
                                 pDataList.Add(pData[0]);
@@ -1461,35 +1461,35 @@ namespace Spatial_Additive_Manufacturing
                             //created a motion that extrudes the opposite direction of the path 
 
                             //preExtrusion to get the extrusion value ramped up to the vertical e5 value
-                            pData[pdatacount] = new SMTPData(counter, 0, 0, MoveType.Lin, preExtrudingPlane, extrude, 0.7f);
+                            pData[pdatacount] = new SMTPData(counter, MoveType.Lin, preExtrudingPlane, extrude, 0.7f);
                             pData[pdatacount].AxisValues["E5"] = 1.8;
                             pDataList.Add(pData[pdatacount]);
                             allPlanes.Add(preExtrudingPlane);
                             counter++;
                             pdatacount++;
 
-                            pData[pdatacount] = new SMTPData(counter, 0, 0, MoveType.Lin, planeAtStart, extrude, 0.7f);
+                            pData[pdatacount] = new SMTPData(counter, MoveType.Lin, planeAtStart, extrude, 0.7f);
                             pData[pdatacount].AxisValues["E5"] = 1.8;
                             pDataList.Add(pData[pdatacount]);
                             allPlanes.Add(planeAtStart);
                             counter++;
                             pdatacount++;
 
-                            pData[pdatacount] = new SMTPData(counter, 0, 0, MoveType.Lin, startCooling_plane, cool, 0.7f);
+                            pData[pdatacount] = new SMTPData(counter, MoveType.Lin, startCooling_plane, cool, 0.7f);
                             pDataList.Add(pData[pdatacount]);
                             allPlanes.Add(startCooling_plane);
                             counter++;
                             pdatacount++;
 
                             //create a point above the end point of the path to make the extrusion
-                            pData[pdatacount] = new SMTPData(counter, 0, 0, MoveType.Lin, stopExtrudingPlane, stopExtrude, 0.7f);
+                            pData[pdatacount] = new SMTPData(counter, MoveType.Lin, stopExtrudingPlane, stopExtrude, 0.7f);
                             pData[pdatacount].AxisValues["E5"] = 1.8;
                             pDataList.Add(pData[pdatacount]);
                             allPlanes.Add(stopExtrudingPlane);
                             counter++;
                             pdatacount++;
 
-                            pData[pdatacount] = new SMTPData(counter, 0, 0, MoveType.Lin, planeAtEnd, stopCooling, 0.7f);
+                            pData[pdatacount] = new SMTPData(counter, MoveType.Lin, planeAtEnd, stopCooling, 0.7f);
                             pData[pdatacount].AxisValues["E5"] = 1.8;
                             pDataList.Add(pData[pdatacount]);
                             allPlanes.Add(planeAtEnd);

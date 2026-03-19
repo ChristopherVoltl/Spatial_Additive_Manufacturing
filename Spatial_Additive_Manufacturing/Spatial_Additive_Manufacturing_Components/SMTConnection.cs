@@ -14,9 +14,8 @@ using static Spatial_Additive_Manufacturing.Spatial_Printing_Components.N_Bracin
 using System.Runtime.CompilerServices;
 using static System.Windows.Forms.VisualStyles.VisualStyleElement;
 using System.Reflection.Metadata;
-using Ed.Eto;
 using System.Security.Cryptography;
-using Eto.Forms;
+
 
 
 namespace Spatial_Additive_Manufacturing
@@ -74,7 +73,7 @@ namespace Spatial_Additive_Manufacturing
                 Vector3d xAxis = pathStart.XAxis;
                 Vector3d yAxis = pathStart.YAxis;
 
-                float traverseVelRatio = 1.0f;
+                float traverseVelRatio = 2.0f;
 
                 if (prevEnd.DistanceTo(pathStart.Origin) > 10.0)
                 {
@@ -83,7 +82,7 @@ namespace Spatial_Additive_Manufacturing
                     Point3d prevEndlift = new Point3d(prevCurve.PointAtEnd.X, prevCurve.PointAtEnd.Y, prevCurve.PointAtEnd.Z + 4.5);
 
                     Plane endPlane = new Plane(prevEnd, xAxis, yAxis);
-                    var stopData = new SMTPData(counter++, 0, 0, MoveType.Lin, endPlane, stopCooling, traverseVelRatio);
+                    var stopData = new SMTPData(counter++, MoveType.Lin, endPlane, stopCooling, traverseVelRatio);
                     stopData.Events["NozzleCooling"] = stopHeat;
                     //stopData.Events["Extrude"] = stopExtrude;
                     pDataList.Add(stopData);
@@ -92,14 +91,14 @@ namespace Spatial_Additive_Manufacturing
                     // 2. Lift vertically
                     Point3d liftPt = new Point3d(prevEnd.X, prevEnd.Y, prevEnd.Z + 70);
                     Plane liftPlane = new Plane(liftPt, xAxis, yAxis);
-                    var liftData = new SMTPData(counter++, 0, 0, MoveType.Lin, liftPlane, traverseVelRatio);
+                    var liftData = new SMTPData(counter++, MoveType.Lin, liftPlane, traverseVelRatio);
                     pDataList.Add(liftData);
                     allPlanes.Add(liftPlane);
 
                     // 3. Move horizontally to next start point at same Z as lift
                     Point3d traversePt = new Point3d(pathStart.Origin.X, pathStart.Origin.Y, liftPt.Z);
                     Plane traversePlane = new Plane(traversePt, xAxis, yAxis);
-                    var traverseData = new SMTPData(counter++, 0, 0, MoveType.Lin, traversePlane, traverseVelRatio * 0.8f);
+                    var traverseData = new SMTPData(counter++, MoveType.Lin, traversePlane, traverseVelRatio * 0.8f);
                     traverseData.AxisValues["E5"] = 2.0;
                     pDataList.Add(traverseData);
                     allPlanes.Add(traversePlane);
@@ -108,7 +107,7 @@ namespace Spatial_Additive_Manufacturing
             }
             catch (ArgumentOutOfRangeException)
             {
-                var recovery = new SMTPData(counter++, 0, 0, MoveType.Lin, pathStart, stopCooling, 0.1f);
+                var recovery = new SMTPData(counter++, MoveType.Lin, pathStart, stopCooling, 2.0f);
                 recovery.Events["NozzleCooling"] = stopHeat;
                 recovery.Events["NozzleCooling2"] = stopCooling;
                 pDataList.Add(recovery);
@@ -163,7 +162,7 @@ namespace Spatial_Additive_Manufacturing
 
 
 
-                    SuperEvent extrusionE1 = new SuperEvent(extrudeAct, 0.0, EventType.Activate, true);
+                    //SuperEvent extrusionE1 = new SuperEvent(extrudeAct, 0.0, EventType.Activate, true);
 
 
                     //Nozzle Heating actionstates
@@ -211,7 +210,7 @@ namespace Spatial_Additive_Manufacturing
                             Line line = new Line(AllFGAMPData[i].PointAtStart, AllFGAMPData[i].PointAtEnd);
                         }
                         int segmentCount = polyline.SegmentCount;
-                        int crv_index = 0;
+                        int crv_index = 0;                       
 
                         for (int j = 0; j < segmentCount; j++)
                         {
@@ -224,7 +223,7 @@ namespace Spatial_Additive_Manufacturing
                             IPathPointStrategy pointStrategy = PathPointStrategyFactory.GetStrategy(eachCurve, segmentCount, crv_index);
 
                             double E5Val = 2.0;
-                            float velRatio = 0.05f;
+                            float velRatio = 1.0f;
 
 
 
@@ -273,15 +272,21 @@ namespace Spatial_Additive_Manufacturing
 
 
                             //Path points that are generated per each curve type
-                            var sequence = pointStrategy.GetPathPoints(eachCurve, segmentCount, crv_index);
-                            crv_index++;
+                            var sequence = pointStrategy.GetPathPoints(eachCurve, polyline.SegmentCount, j);
+                            
 
                             foreach (var step in sequence)
                             {
                                 Plane pathPlane = planeGenerator.GeneratePlane(eachCurve, step.Point, out double xAxisDif_pathPlane, out double yAxisDif_pathPlane);
 
                                 velRatio = step.VelRatio;
-                                var smtpData = new SMTPData(counter, 0, 0, MoveType.Lin, pathPlane, velRatio);
+
+                                RhinoApp.WriteLine(
+                                $"i={i} j={j} idx={crv_index} count={segmentCount} orient={eachCurve.Orientation} stepVR={step.VelRatio}");
+                                var smtpData = new SMTPData(counter, MoveType.Lin, pathPlane, velRatio);
+                                smtpData.LengthParam = counter;
+                                smtpData.MType = MoveType.Lin;
+                                
                                 smtpData.AxisValues["E5"] = step.E5Value;
 
                                 // Activate/deactivate cooling:
@@ -300,6 +305,7 @@ namespace Spatial_Additive_Manufacturing
                                 if (step.CycleWait) smtpData.Events["CycleWait"] = cycleWait;
                                 
 
+
                                 pData.Add(smtpData);
                                 counter++;
 
@@ -316,8 +322,10 @@ namespace Spatial_Additive_Manufacturing
                                 allXAxisDifValues.Add(xAxisDif_pathPlane);
                                 allYAxisDifValues.Add(yAxisDif_pathPlane);
                                 allPlaneRotationAngles.Add(planeRotAngle);
-
+                                
                             }
+
+                            crv_index++;
 
                             Plane stopPlane;
 
@@ -333,16 +341,16 @@ namespace Spatial_Additive_Manufacturing
                                 stopPlane = planeGenerator.GeneratePlane(eachCurve, eachCurve.EndPoint, out double xAxisDif_stopPlane, out double yAxisDif_stopPlane);
                             }
                                 
-                            SMTPData stopExtrudeData = new SMTPData(counter, 0, 0, MoveType.Lin, stopPlane, stopExtrude, 0.15f);
-                            stopExtrudeData.Events["NozzleCooling2"] = stopCooling;
-                            stopExtrudeData.Events["Extrude"] = stopExtrude;
-                            stopExtrudeData.Events["NozzleCooling"] = stopHeat;
-                            stopExtrudeData.AxisValues["E5"] = E5Val;
+                            //SMTPData stopExtrudeData = new SMTPData(counter, 0, 0, MoveType.Lin, stopPlane, stopExtrude, 0.2f);
+                            //stopExtrudeData.Events["NozzleCooling2"] = stopCooling;
+                            //stopExtrudeData.Events["Extrude"] = stopExtrude;
+                            //stopExtrudeData.Events["NozzleCooling"] = stopHeat;
+                            //stopExtrudeData.AxisValues["E5"] = E5Val;
                             //pData.Add(stopExtrudeData);
-                            counter++;
+                            //counter++;
 
                             // Store for visualization:
-                            allPlanes.Add(stopPlane);
+                            //allPlanes.Add(stopPlane);
                             allE5Values.Add(E5Val);
                             allSMTPData.Add(pData);
                         }
@@ -520,8 +528,7 @@ namespace Spatial_Additive_Manufacturing
             {
                 RhinoApp.WriteLine("The selected object is not a Curve.");
             }
-           
-            
+          
 
             WriteAllToSMT(pathCurves, Vertical_E5, Horizontal_E5, Angled_E5, Velocity_Ratio_Multiplier);
 
