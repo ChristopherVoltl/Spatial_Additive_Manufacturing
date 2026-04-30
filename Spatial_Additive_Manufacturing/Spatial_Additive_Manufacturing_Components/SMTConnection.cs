@@ -82,8 +82,10 @@ namespace Spatial_Additive_Manufacturing
                     Point3d prevEndlift = new Point3d(prevCurve.PointAtEnd.X, prevCurve.PointAtEnd.Y, prevCurve.PointAtEnd.Z + 4.5);
 
                     Plane endPlane = new Plane(prevEnd, xAxis, yAxis);
-                    var stopData = new SMTPData(counter++, MoveType.Lin, endPlane, stopCooling, traverseVelRatio);
+                    var stopData = new SMTPData(counter++, MoveType.Lin, endPlane, traverseVelRatio);
                     stopData.Events["NozzleCooling"] = stopHeat;
+                    stopData.Events["NozzleCooling2"] = stopCooling;
+
                     //stopData.Events["Extrude"] = stopExtrude;
                     pDataList.Add(stopData);
                     allPlanes.Add(endPlane);
@@ -99,9 +101,19 @@ namespace Spatial_Additive_Manufacturing
                     Point3d traversePt = new Point3d(pathStart.Origin.X, pathStart.Origin.Y, liftPt.Z);
                     Plane traversePlane = new Plane(traversePt, xAxis, yAxis);
                     var traverseData = new SMTPData(counter++, MoveType.Lin, traversePlane, traverseVelRatio * 0.8f);
-                    traverseData.AxisValues["E5"] = 2.0;
+                    traverseData.Events["Extrude"] = stopExtrude;
+                    //traverseData.AxisValues["E5"] = 0.5;
                     pDataList.Add(traverseData);
                     allPlanes.Add(traversePlane);
+
+                    // 4. Preextreude plane at start point before descending
+                    Point3d preExtrudePt = new Point3d(pathStart.Origin.X, pathStart.Origin.Y, pathStart.Origin.Z + 5.0);
+                    Plane preExtrudePlane = new Plane(preExtrudePt, xAxis, yAxis);
+                    var preExtrudeData = new SMTPData(counter++, MoveType.Lin, preExtrudePlane, traverseVelRatio * 0.8f);
+                    //traverseData.Events["Extrude"] = extrude;
+                    //preExtrudeData.AxisValues["E5"] = 0.5;
+                    pDataList.Add(preExtrudeData);
+                    allPlanes.Add(preExtrudePlane);
                 }
                 
             }
@@ -151,7 +163,7 @@ namespace Spatial_Additive_Manufacturing
 
                     ActionState PauseAct = opUI.SuperOperationRef.GetActionState("CycleWait");
                     SuperActionUI actionPauseUI = opUI.ActionControls["CycleWait"];
-                    actionPauseUI.StartValue = "3.5";
+                    actionPauseUI.StartValue = "6.0";
                     actionPauseUI.ActivationMode = ActivationStyle.PointData;
 
 
@@ -220,7 +232,7 @@ namespace Spatial_Additive_Manufacturing
                             List<SMTPData> pData = new();
 
                             IPlaneGenerator planeGenerator = PlaneGeneratorFactory.GetGenerator(eachCurve.Orientation);
-                            IPathPointStrategy pointStrategy = PathPointStrategyFactory.GetStrategy(eachCurve, segmentCount, crv_index);
+                            IPathPointStrategy pointStrategy = PathPointStrategyFactory.GetStrategy(eachCurve, segmentCount, crv_index, Vertical_E5, Angled_E5, Horizontal_E5);
 
                             double E5Val = 2.0;
                             float velRatio = 1.0f;
@@ -272,7 +284,7 @@ namespace Spatial_Additive_Manufacturing
 
 
                             //Path points that are generated per each curve type
-                            var sequence = pointStrategy.GetPathPoints(eachCurve, polyline.SegmentCount, j);
+                            var sequence = pointStrategy.GetPathPoints(eachCurve, polyline.SegmentCount, j, Vertical_E5, Angled_E5, Horizontal_E5);
                             
 
                             foreach (var step in sequence)

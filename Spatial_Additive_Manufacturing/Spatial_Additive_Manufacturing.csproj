@@ -11,8 +11,8 @@
   </PropertyGroup>
   
   <ItemGroup>
-    <PackageReference Include="Grasshopper" Version="8.28.26041.11001" />
-    <PackageReference Include="RhinoCommon" Version="8.28.26041.11001" />
+    <PackageReference Include="Grasshopper" Version="8.30.26103.11001" />
+    <PackageReference Include="RhinoCommon" Version="8.30.26103.11001" />
   </ItemGroup>
   
   <ItemGroup>
