@@ -29,6 +29,14 @@ public class PathCurve
         PointCount = ComputePointCount(Orientation);
     }
 
+    public PathCurve(Line line, OrientationType orientation)
+    {
+        Id = Guid.NewGuid();
+        Line = line;
+        Orientation = orientation;
+        PointCount = ComputePointCount(Orientation);
+    }
+
     private int ComputePointCount(OrientationType orientation)
     {
         if (Orientation == OrientationType.Vertical)

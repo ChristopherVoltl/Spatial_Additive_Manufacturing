@@ -20,6 +20,60 @@ using System.Security.Cryptography;
 
 namespace Spatial_Additive_Manufacturing
 {
+    public enum SMTMemberClassification
+    {
+        Geometric,
+        Horizontal,
+        Vertical,
+        Angled,
+        AngledDown
+    }
+
+    public sealed class SMTClassifiedCurve
+    {
+        public SMTClassifiedCurve(Curve curve, SMTMemberClassification classification)
+        {
+            Curve = curve;
+            Classification = classification;
+            SegmentClassifications = new[] { classification };
+        }
+
+        public SMTClassifiedCurve(Curve curve, IReadOnlyList<SMTMemberClassification> segmentClassifications)
+        {
+            Curve = curve;
+            SegmentClassifications = segmentClassifications ?? Array.Empty<SMTMemberClassification>();
+            Classification = SegmentClassifications.Count > 0
+                ? SegmentClassifications[0]
+                : SMTMemberClassification.Geometric;
+        }
+
+        public Curve Curve { get; }
+        public SMTMemberClassification Classification { get; }
+        public IReadOnlyList<SMTMemberClassification> SegmentClassifications { get; }
+
+        public SMTMemberClassification GetClassificationForSegment(int segmentIndex)
+        {
+            if (SegmentClassifications != null &&
+                segmentIndex >= 0 &&
+                segmentIndex < SegmentClassifications.Count)
+            {
+                return SegmentClassifications[segmentIndex];
+            }
+
+            return Classification;
+        }
+
+        public override string ToString()
+        {
+            if (SegmentClassifications == null || SegmentClassifications.Count == 0)
+            {
+                return $"{Classification} member";
+            }
+
+            return string.Join(" -> ", SegmentClassifications);
+        }
+    }
+
     public class SMTConnection_Component : GH_Component
     {
         static SuperMatterToolsPlugin smtPlugin => SuperMatterToolsPlugin.Instance;
@@ -41,6 +95,15 @@ namespace Spatial_Additive_Manufacturing
             pManager.AddNumberParameter("Angled_E5", "A_E5", "Parameter to split the curves at (between 0 and 1)", GH_ParamAccess.item, 1.4);
             pManager.AddNumberParameter("Horizontal_E5", "H_E5", "Parameter to split the curves at (between 0 and 1)", GH_ParamAccess.item, 1.4);
             pManager.AddNumberParameter("Velocity Ratio Multiplier", "VRx", "Parameter to split the curves at (between 0 and 1)", GH_ParamAccess.item, 1.4);
+            pManager.AddNumberParameter("Root Roll Offset", "RRO", "Local Z roll in degrees applied to root-facing path planes to move A6 away from singularity. Use 0 for old behavior.", GH_ParamAccess.item, PlaneGenerationUtils.DefaultRootFacingRollOffsetDegrees);
+            pManager.AddPlaneParameter("XY Plane", "XY", "Machine/root XY plane used for root-facing path plane orientation.", GH_ParamAccess.item);
+            pManager.AddNumberParameter("Max XY Deviation", "MXD", "Maximum plane rotation away from the input XY plane. Smaller keeps path planes closer to the root/reference XY plane.", GH_ParamAccess.item, PlaneGenerationUtils.DefaultMaxXYDeviationDegrees);
+            pManager.AddNumberParameter("Max Tool Tilt", "MT", "Additional maximum plane Z tilt away from the root plane down direction.", GH_ParamAccess.item, PlaneGenerationUtils.DefaultMaxToolTiltDegrees);
+            pManager.AddNumberParameter("A4 Plane Offset", "A4O", "Constant yaw offset in degrees around the input XY plane Z axis. Use small positive or negative values to bias A4 away from its limit.", GH_ParamAccess.item, PlaneGenerationUtils.DefaultXYPlaneYawOffsetDegrees);
+            pManager[6].Optional = true;
+            pManager[7].Optional = true;
+            pManager[8].Optional = true;
+            pManager[9].Optional = true;
         }
 
         /// <summary>
@@ -54,7 +117,7 @@ namespace Spatial_Additive_Manufacturing
             //pManager.AddPointParameter("SuperShape", "SS", "SuperShape for each plane", GH_ParamAccess.list);
         }
 
-        private void AddTraversalSequence(
+        private static void AddTraversalSequence(
      List<SMTPData> pDataList,
      Plane pathStart,
      Curve prevCurve,
@@ -126,8 +189,231 @@ namespace Spatial_Additive_Manufacturing
             }
         }
 
-        public void WriteAllToSMT(List<Curve> AllFGAMPData, double Vertical_E5, double Angled_E5, double Horizontal_E5, double velocity_ratio_multiplier)
+        public void WriteAllToSMT(
+            List<Curve> AllFGAMPData,
+            double Vertical_E5,
+            double Angled_E5,
+            double Horizontal_E5,
+            double velocity_ratio_multiplier,
+            double rootRollOffsetDegrees = PlaneGenerationUtils.DefaultRootFacingRollOffsetDegrees,
+            Plane? rootReferencePlane = null,
+            double maxRootFacingDeviationDegrees = PlaneGenerationUtils.DefaultMaxRootFacingDeviationDegrees,
+            double maxToolTiltDegrees = PlaneGenerationUtils.DefaultMaxToolTiltDegrees,
+            double xyPlaneYawOffsetDegrees = PlaneGenerationUtils.DefaultXYPlaneYawOffsetDegrees)
         {
+            List<SMTClassifiedCurve> classifiedCurves = AllFGAMPData
+                .Select(curve => new SMTClassifiedCurve(curve, SMTMemberClassification.Geometric))
+                .ToList();
+
+            WriteClassifiedToSMT(
+                classifiedCurves,
+                Vertical_E5,
+                Angled_E5,
+                Horizontal_E5,
+                velocity_ratio_multiplier,
+                rootRollOffsetDegrees,
+                rootReferencePlane,
+                maxRootFacingDeviationDegrees,
+                maxToolTiltDegrees,
+                xyPlaneYawOffsetDegrees);
+        }
+
+        private static PathCurve CreatePathCurve(Line line, SMTMemberClassification classification)
+        {
+            if (classification == SMTMemberClassification.Horizontal)
+            {
+                return new PathCurve(line, PathCurve.OrientationType.Horizontal);
+            }
+
+            if (classification == SMTMemberClassification.Vertical)
+            {
+                return new PathCurve(line, PathCurve.OrientationType.Vertical);
+            }
+
+            if (classification == SMTMemberClassification.Angled ||
+                classification == SMTMemberClassification.AngledDown)
+            {
+                return new PathCurve(line, PathCurve.OrientationType.AngledDown);
+            }
+
+            return new PathCurve(line, 0.01);
+        }
+
+        private static Plane GenerateInheritedPlane(PathCurve pathCurve, Point3d origin, Plane inheritedPlane, out double xAxisDif, out double yAxisDif)
+        {
+            Plane plane = PlaneGenerationUtils.ConstrainPlane(FlipXAxisForNegativeXYCurveTiltIfNeeded(pathCurve, new Plane(origin, inheritedPlane.XAxis, inheritedPlane.YAxis)));
+            xAxisDif = Vector3d.VectorAngle(plane.XAxis, Vector3d.XAxis) * (180.0 / Math.PI);
+            yAxisDif = Vector3d.VectorAngle(plane.YAxis, Vector3d.YAxis) * (180.0 / Math.PI);
+            return plane;
+        }
+
+        private static Plane OptimizeRollAroundZ(
+            PathCurve pathCurve,
+            Plane seedPlane,
+            Plane referencePlane,
+            bool hasReferencePlane,
+            out double xAxisDif,
+            out double yAxisDif)
+        {
+            Plane bestPlane = seedPlane;
+            double bestScore = double.MaxValue;
+
+            foreach (double angle in BuildRollCandidateAngles())
+            {
+                Plane candidate = PlaneGenerationUtils.ConstrainPlane(RotatePlaneAroundLocalZ(seedPlane, angle));
+                double score = ScoreAgainstRootFacingPosture(candidate);
+                if (hasReferencePlane)
+                {
+                    score += 0.2 * ScoreAgainstReferencePlane(candidate, referencePlane);
+                }
+
+                if (score < bestScore)
+                {
+                    bestScore = score;
+                    bestPlane = candidate;
+                }
+            }
+
+            Plane adjustedPlane = PlaneGenerationUtils.ConstrainPlane(FlipXAxisForNegativeXYCurveTiltIfNeeded(pathCurve, bestPlane));
+            xAxisDif = Vector3d.VectorAngle(adjustedPlane.XAxis, Vector3d.XAxis) * (180.0 / Math.PI);
+            yAxisDif = Vector3d.VectorAngle(adjustedPlane.YAxis, Vector3d.YAxis) * (180.0 / Math.PI);
+            return adjustedPlane;
+        }
+
+        private static Plane FlipXAxisForNegativeXYCurveTiltIfNeeded(PathCurve pathCurve, Plane plane)
+        {
+            const double flipThresholdDegrees = 20.0;
+            const double directionTolerance = 1e-6;
+
+            if (pathCurve == null)
+            {
+                return plane;
+            }
+
+            Vector3d lowerToHigher = GetLowerToHigherCurveVector(pathCurve);
+            if (!lowerToHigher.Unitize())
+            {
+                return plane;
+            }
+
+            double verticalDeviation = RhinoMath.ToDegrees(Vector3d.VectorAngle(lowerToHigher, Vector3d.ZAxis));
+            bool tiltsTowardNegativeXY =
+                lowerToHigher.X < -directionTolerance &&
+                lowerToHigher.Y < -directionTolerance;
+
+            if (verticalDeviation <= flipThresholdDegrees || !tiltsTowardNegativeXY)
+            {
+                return plane;
+            }
+
+            // Negate both axes so the plane's X flips while the tool Z direction stays unchanged.
+            return new Plane(plane.Origin, -plane.XAxis, -plane.YAxis);
+        }
+
+        private static Vector3d GetLowerToHigherCurveVector(PathCurve pathCurve)
+        {
+            Point3d start = pathCurve.StartPoint;
+            Point3d end = pathCurve.EndPoint;
+
+            if (start.Z <= end.Z)
+            {
+                return end - start;
+            }
+
+            return start - end;
+        }
+
+        private static IEnumerable<double> BuildRollCandidateAngles()
+        {
+            yield return 0.0;
+
+            for (int degrees = 15; degrees <= 180; degrees += 15)
+            {
+                double radians = RhinoMath.ToRadians(degrees);
+                yield return radians;
+                yield return -radians;
+            }
+        }
+
+        private static Plane RotatePlaneAroundLocalZ(Plane plane, double angle)
+        {
+            Vector3d xAxis = plane.XAxis;
+            Vector3d yAxis = plane.YAxis;
+            Transform rotation = Transform.Rotation(angle, plane.ZAxis, plane.Origin);
+            xAxis.Transform(rotation);
+            yAxis.Transform(rotation);
+            xAxis.Unitize();
+            yAxis.Unitize();
+            return new Plane(plane.Origin, xAxis, yAxis);
+        }
+
+        private static double ScoreAgainstReferencePlane(Plane candidate, Plane referencePlane)
+        {
+            return Vector3d.VectorAngle(candidate.XAxis, referencePlane.XAxis) +
+                   Vector3d.VectorAngle(candidate.YAxis, referencePlane.YAxis);
+        }
+
+        private static double ScoreAgainstRootFacingPosture(Plane candidate)
+        {
+            Vector3d desiredYAxis = PlaneGenerationUtils.ComputeXYReferenceYAxis(candidate.ZAxis);
+            if (!desiredYAxis.Unitize())
+            {
+                return 0.0;
+            }
+
+            return Vector3d.VectorAngle(candidate.YAxis, desiredYAxis);
+        }
+
+        private static Plane GeneratePathPlane(
+            IPlaneGenerator planeGenerator,
+            PathCurve eachCurve,
+            Point3d referencePoint,
+            bool inheritPreviousVerticalPlane,
+            Plane previousVerticalPlane,
+            bool hasPreviousVerticalPlane,
+            out double xAxisDif,
+            out double yAxisDif)
+        {
+            if (inheritPreviousVerticalPlane)
+            {
+                return GenerateInheritedPlane(eachCurve, referencePoint, previousVerticalPlane, out xAxisDif, out yAxisDif);
+            }
+
+            Plane generatedPlane = planeGenerator.GeneratePlane(eachCurve, referencePoint, out xAxisDif, out yAxisDif);
+            if (eachCurve.Orientation == PathCurve.OrientationType.Vertical)
+            {
+                return OptimizeRollAroundZ(
+                    eachCurve,
+                    generatedPlane,
+                    previousVerticalPlane,
+                    hasPreviousVerticalPlane,
+                    out xAxisDif,
+                    out yAxisDif);
+            }
+
+            Plane adjustedPlane = PlaneGenerationUtils.ConstrainPlane(FlipXAxisForNegativeXYCurveTiltIfNeeded(eachCurve, generatedPlane));
+            xAxisDif = Vector3d.VectorAngle(adjustedPlane.XAxis, Vector3d.XAxis) * (180.0 / Math.PI);
+            yAxisDif = Vector3d.VectorAngle(adjustedPlane.YAxis, Vector3d.YAxis) * (180.0 / Math.PI);
+            return adjustedPlane;
+        }
+
+        public static void WriteClassifiedToSMT(
+            List<SMTClassifiedCurve> AllFGAMPData,
+            double Vertical_E5,
+            double Angled_E5,
+            double Horizontal_E5,
+            double velocity_ratio_multiplier,
+            double rootRollOffsetDegrees = PlaneGenerationUtils.DefaultRootFacingRollOffsetDegrees,
+            Plane? rootReferencePlane = null,
+            double maxRootFacingDeviationDegrees = PlaneGenerationUtils.DefaultMaxRootFacingDeviationDegrees,
+            double maxToolTiltDegrees = PlaneGenerationUtils.DefaultMaxToolTiltDegrees,
+            double xyPlaneYawOffsetDegrees = PlaneGenerationUtils.DefaultXYPlaneYawOffsetDegrees)
+        {
+            PlaneGenerationUtils.RootFacingRollOffsetDegrees = rootRollOffsetDegrees;
+            PlaneGenerationUtils.XYPlaneYawOffsetDegrees = xyPlaneYawOffsetDegrees;
+            PlaneGenerationUtils.RootReferencePlane = rootReferencePlane ?? Plane.WorldXY;
+            PlaneGenerationUtils.MaxXYDeviationDegrees = maxRootFacingDeviationDegrees;
+            PlaneGenerationUtils.MaxToolTiltDegrees = maxToolTiltDegrees;
 
             //get the operation UI!
             int progIndex = smtPlugin.UIData.ProgramIndex;
@@ -210,16 +496,17 @@ namespace Spatial_Additive_Manufacturing
 
                     //loop through each path polyline 
                     List<List<SMTPData>> allSMTPData = new();
+                    Plane previousVerticalPlane = Plane.Unset;
+                    bool hasPreviousVerticalPlane = false;
+
                     for (int i = 0; i < AllFGAMPData.Count; i++)
                     {
-  
+                        SMTClassifiedCurve classifiedCurve = AllFGAMPData[i];
                         Polyline polyline;
-                        if (AllFGAMPData[i].TryGetPolyline(out polyline))
-                        {                      
-                        }
-                        else
+                        if (!classifiedCurve.Curve.TryGetPolyline(out polyline))
                         {
-                            Line line = new Line(AllFGAMPData[i].PointAtStart, AllFGAMPData[i].PointAtEnd);
+                            Line line = new Line(classifiedCurve.Curve.PointAtStart, classifiedCurve.Curve.PointAtEnd);
+                            polyline = new Polyline(new[] { line.From, line.To });
                         }
                         int segmentCount = polyline.SegmentCount;
                         int crv_index = 0;                       
@@ -227,12 +514,16 @@ namespace Spatial_Additive_Manufacturing
                         for (int j = 0; j < segmentCount; j++)
                         {
                             Line line = polyline.SegmentAt(j);  
+                            SMTMemberClassification segmentClassification = classifiedCurve.GetClassificationForSegment(j);
 
-                            PathCurve eachCurve = new PathCurve(line, 0.01);
+                            PathCurve eachCurve = CreatePathCurve(line, segmentClassification);
                             List<SMTPData> pData = new();
 
                             IPlaneGenerator planeGenerator = PlaneGeneratorFactory.GetGenerator(eachCurve.Orientation);
                             IPathPointStrategy pointStrategy = PathPointStrategyFactory.GetStrategy(eachCurve, segmentCount, crv_index, Vertical_E5, Angled_E5, Horizontal_E5);
+                            bool inheritPreviousVerticalPlane =
+                                eachCurve.Orientation == PathCurve.OrientationType.AngledDown &&
+                                hasPreviousVerticalPlane;
 
                             double E5Val = 2.0;
                             float velRatio = 1.0f;
@@ -240,14 +531,22 @@ namespace Spatial_Additive_Manufacturing
 
 
                             //Pre-extrusion
-                            Plane prePlane = planeGenerator.GeneratePlane(eachCurve, eachCurve.preExtrusion, out double xAxisDif_prePlane, out double yAxisDif_prePlane);
+                            Plane prePlane = GeneratePathPlane(
+                                planeGenerator,
+                                eachCurve,
+                                eachCurve.preExtrusion,
+                                inheritPreviousVerticalPlane,
+                                previousVerticalPlane,
+                                hasPreviousVerticalPlane,
+                                out double xAxisDif_prePlane,
+                                out double yAxisDif_prePlane);
                             
                             //temp rotation of plane 
 
                             //Traversal 
                             if (j == 0 && i > 0)
                             {
-                                Curve prevCurve = AllFGAMPData[i - 1];
+                                Curve prevCurve = AllFGAMPData[i - 1].Curve;
                                 AddTraversalSequence(pData, prePlane, prevCurve, ref counter, stopExtrude, stopCooling, stopHeat, extrude, allPlanes);
                             }
 
@@ -289,7 +588,15 @@ namespace Spatial_Additive_Manufacturing
 
                             foreach (var step in sequence)
                             {
-                                Plane pathPlane = planeGenerator.GeneratePlane(eachCurve, step.Point, out double xAxisDif_pathPlane, out double yAxisDif_pathPlane);
+                                Plane pathPlane = GeneratePathPlane(
+                                    planeGenerator,
+                                    eachCurve,
+                                    step.Point,
+                                    inheritPreviousVerticalPlane,
+                                    previousVerticalPlane,
+                                    hasPreviousVerticalPlane,
+                                    out double xAxisDif_pathPlane,
+                                    out double yAxisDif_pathPlane);
 
                                 velRatio = step.VelRatio;
 
@@ -325,15 +632,22 @@ namespace Spatial_Additive_Manufacturing
                                 // Store for visualization:
                                 allPlanes.Add(pathPlane);
                                 allE5Values.Add(step.E5Value);
-                                var diffs_pathData = ToolpathPlaneConduit.GetPlaneAxisDifferences(Plane.WorldXY, pathPlane);
+                                Plane rootReference = PlaneGenerationUtils.GetValidRootReferencePlane();
+                                var diffs_pathData = ToolpathPlaneConduit.GetPlaneAxisDifferences(rootReference, pathPlane);
                                 double xAxisDif_pathData = diffs_pathData.xAxisDif;
                                 double yAxisDif_pathData = diffs_pathData.yAxisDif;
 
-                                double planeRotAngle = ToolpathPlaneConduit.GetPlaneRotationAngle(Plane.WorldXY, pathPlane);
+                                double planeRotAngle = ToolpathPlaneConduit.GetPlaneRotationAngle(rootReference, pathPlane);
 
                                 allXAxisDifValues.Add(xAxisDif_pathPlane);
                                 allYAxisDifValues.Add(yAxisDif_pathPlane);
                                 allPlaneRotationAngles.Add(planeRotAngle);
+
+                                if (eachCurve.Orientation == PathCurve.OrientationType.Vertical)
+                                {
+                                    previousVerticalPlane = pathPlane;
+                                    hasPreviousVerticalPlane = true;
+                                }
                                 
                             }
 
@@ -345,12 +659,28 @@ namespace Spatial_Additive_Manufacturing
                             if (eachCurve.Line.Length < 25.0)
                             {
                                 Point3d point3D = new Point3d(eachCurve.EndPoint.X, eachCurve.EndPoint.Y, eachCurve.EndPoint.Z + 5.5);
-                                stopPlane = planeGenerator.GeneratePlane(eachCurve, point3D, out double xAxisDif_stopPlane, out double yAxisDif_stopPlane);
+                                stopPlane = GeneratePathPlane(
+                                    planeGenerator,
+                                    eachCurve,
+                                    point3D,
+                                    inheritPreviousVerticalPlane,
+                                    previousVerticalPlane,
+                                    hasPreviousVerticalPlane,
+                                    out double xAxisDif_stopPlane,
+                                    out double yAxisDif_stopPlane);
                             }
                             else
                             {
                                 Point3d point3D = new Point3d(eachCurve.EndPoint.X, eachCurve.EndPoint.Y, eachCurve.EndPoint.Z + 2.5);
-                                stopPlane = planeGenerator.GeneratePlane(eachCurve, eachCurve.EndPoint, out double xAxisDif_stopPlane, out double yAxisDif_stopPlane);
+                                stopPlane = GeneratePathPlane(
+                                    planeGenerator,
+                                    eachCurve,
+                                    eachCurve.EndPoint,
+                                    inheritPreviousVerticalPlane,
+                                    previousVerticalPlane,
+                                    hasPreviousVerticalPlane,
+                                    out double xAxisDif_stopPlane,
+                                    out double yAxisDif_stopPlane);
                             }
                                 
                             //SMTPData stopExtrudeData = new SMTPData(counter, 0, 0, MoveType.Lin, stopPlane, stopExtrude, 0.2f);
@@ -527,12 +857,22 @@ namespace Spatial_Additive_Manufacturing
             double Angled_E5 = new();
             double Horizontal_E5 = new();
             double Velocity_Ratio_Multiplier = new();
+            double rootRollOffsetDegrees = PlaneGenerationUtils.DefaultRootFacingRollOffsetDegrees;
+            Plane rootReferencePlane = Plane.WorldXY;
+            double maxRootFacingDeviationDegrees = PlaneGenerationUtils.DefaultMaxXYDeviationDegrees;
+            double maxToolTiltDegrees = PlaneGenerationUtils.DefaultMaxToolTiltDegrees;
+            double xyPlaneYawOffsetDegrees = PlaneGenerationUtils.DefaultXYPlaneYawOffsetDegrees;
 
             if (!DA.GetDataList(0, pathCurves)) { return; }
             if (!DA.GetData(1, ref Vertical_E5)) return;
             if (!DA.GetData(2, ref Angled_E5)) return;
             if (!DA.GetData(3, ref Horizontal_E5)) return;
             if (!DA.GetData(4, ref Velocity_Ratio_Multiplier)) return;
+            DA.GetData(5, ref rootRollOffsetDegrees);
+            DA.GetData(6, ref rootReferencePlane);
+            DA.GetData(7, ref maxRootFacingDeviationDegrees);
+            DA.GetData(8, ref maxToolTiltDegrees);
+            DA.GetData(9, ref xyPlaneYawOffsetDegrees);
             // 1. Setup the SMT environment.
 
             // 3. Abort on invalid inputs.
@@ -542,7 +882,17 @@ namespace Spatial_Additive_Manufacturing
             }
           
 
-            WriteAllToSMT(pathCurves, Vertical_E5, Horizontal_E5, Angled_E5, Velocity_Ratio_Multiplier);
+            WriteAllToSMT(
+                pathCurves,
+                Vertical_E5,
+                Angled_E5,
+                Horizontal_E5,
+                Velocity_Ratio_Multiplier,
+                rootRollOffsetDegrees,
+                rootReferencePlane,
+                maxRootFacingDeviationDegrees,
+                maxToolTiltDegrees,
+                xyPlaneYawOffsetDegrees);
 
             
         }

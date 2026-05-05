@@ -8,15 +8,18 @@ public class AngledUpPlaneGenerator : IPlaneGenerator
 {
     public Plane GeneratePlane(PathCurve pathCurve, Point3d referencePoint, out double xAxisDif, out double yAxisDif, Vector3d? optionalTangent = null)
     {
+        Plane rootPlane = PlaneGenerationUtils.GetValidRootReferencePlane();
         Vector3d tangent = optionalTangent ?? pathCurve.Line.Direction;
         tangent.Unitize();
 
-        Vector3d zAxis = -Vector3d.ZAxis;
+        Vector3d zAxis = -rootPlane.ZAxis;
 
         Vector3d yAxis = PlaneGenerationUtils.ComputeYAxisClosestToRoot(referencePoint, tangent);
 
         Vector3d xAxis = Vector3d.CrossProduct(yAxis, zAxis);
         xAxis.Unitize();
+
+        PlaneGenerationUtils.ApplyRootFacingRollOffset(ref xAxis, ref yAxis, zAxis, referencePoint);
 
         xAxisDif = Vector3d.VectorAngle(xAxis, Vector3d.XAxis) * (180.0 / Math.PI);
         yAxisDif = Vector3d.VectorAngle(yAxis, Vector3d.YAxis) * (180.0 / Math.PI);
@@ -30,6 +33,7 @@ public class AngledDownPlaneGenerator : IPlaneGenerator
 {
     public Plane GeneratePlane(PathCurve pathCurve, Point3d referencePoint, out double xAxisDif, out double yAxisDif, Vector3d? optionalTangent = null)
     {
+        Plane rootPlane = PlaneGenerationUtils.GetValidRootReferencePlane();
         // Use tangent at midpoint if not provided
         Vector3d yAxis = optionalTangent ?? pathCurve.Tangent;
         yAxis.Unitize();
@@ -49,7 +53,7 @@ public class AngledDownPlaneGenerator : IPlaneGenerator
         {
             //no rotation = 0
             double rotationAngle = angleToWorldZ;
-            Transform rotation = Transform.Rotation(rotationAngle * (Math.PI / 180.0), Vector3d.CrossProduct(yAxis, Vector3d.ZAxis), pathStart);
+            Transform rotation = Transform.Rotation(rotationAngle * (Math.PI / 180.0), Vector3d.CrossProduct(yAxis, rootPlane.ZAxis), pathStart);
             yAxis.Transform(rotation);
         }
         if (pathCurve.Line.Length <= 80.0)
@@ -65,7 +69,7 @@ public class AngledDownPlaneGenerator : IPlaneGenerator
 
 
         // X and Y orientation cleanup
-        Vector3d xAxis = Vector3d.CrossProduct(Vector3d.ZAxis, yAxis);
+        Vector3d xAxis = Vector3d.CrossProduct(rootPlane.ZAxis, yAxis);
         xAxis.Unitize();
 
         xAxis = -xAxis;
@@ -116,20 +120,25 @@ public class VerticalPlaneGenerator : IPlaneGenerator
 {
     public Plane GeneratePlane(PathCurve pathCurve, Point3d referencePoint, out double xAxisDif, out double yAxisDif, Vector3d? optionalTangent = null)
     {
-        Vector3d zAxis = -Vector3d.ZAxis;
-
-        Vector3d toOrigin = new Vector3d(-referencePoint.X, -referencePoint.Y, -referencePoint.Z);
-        Vector3d yAxis = toOrigin;
-        yAxis.Z = 0;
-        yAxis.Unitize();
-
-        if (yAxis.IsZero)
+        Plane rootPlane = PlaneGenerationUtils.GetValidRootReferencePlane();
+        Vector3d zAxis = optionalTangent ?? pathCurve.Line.Direction;
+        if (!zAxis.Unitize())
         {
-            yAxis = Vector3d.YAxis;
+            zAxis = rootPlane.ZAxis;
+        }
+        zAxis = -zAxis;
+
+        Vector3d yAxis = ComputeRootFacingYAxis(referencePoint, zAxis);
+        Vector3d xAxis = Vector3d.CrossProduct(yAxis, zAxis);
+        if (!xAxis.Unitize())
+        {
+            xAxis = ComputeFallbackXAxis(zAxis);
         }
 
-        Vector3d xAxis = Vector3d.CrossProduct(yAxis, zAxis);
-        xAxis.Unitize();
+        PlaneGenerationUtils.ApplyRootFacingRollOffset(ref xAxis, ref yAxis, zAxis, referencePoint);
+
+        yAxis = Vector3d.CrossProduct(zAxis, xAxis);
+        yAxis.Unitize();
 
         xAxisDif = Vector3d.VectorAngle(xAxis, Vector3d.XAxis) * (180.0 / Math.PI);
         yAxisDif = Vector3d.VectorAngle(yAxis, Vector3d.YAxis) * (180.0 / Math.PI);
@@ -137,26 +146,86 @@ public class VerticalPlaneGenerator : IPlaneGenerator
 
         return new Plane(referencePoint, xAxis, yAxis);
     }
+
+    private static Vector3d ComputeRootFacingYAxis(Point3d referencePoint, Vector3d zAxis)
+    {
+        Vector3d yAxis = PlaneGenerationUtils.ComputeYAxisClosestToRoot(referencePoint, zAxis);
+        yAxis = ProjectOntoPlane(yAxis, zAxis);
+
+        if (!yAxis.Unitize())
+        {
+            Plane rootPlane = PlaneGenerationUtils.GetValidRootReferencePlane();
+            yAxis = ProjectOntoPlane(rootPlane.YAxis, zAxis);
+            if (!yAxis.Unitize())
+            {
+                yAxis = ProjectOntoPlane(rootPlane.XAxis, zAxis);
+                yAxis.Unitize();
+            }
+        }
+
+        return yAxis;
+    }
+
+    private static Vector3d ComputeFallbackXAxis(Vector3d zAxis)
+    {
+        Plane rootPlane = PlaneGenerationUtils.GetValidRootReferencePlane();
+        Vector3d xAxis = ProjectOntoPlane(rootPlane.XAxis, zAxis);
+
+        if (!xAxis.Unitize())
+        {
+            Vector3d fallback = Math.Abs(Vector3d.Multiply(rootPlane.YAxis, zAxis)) < 0.95
+                ? rootPlane.YAxis
+                : rootPlane.ZAxis;
+
+            xAxis = ProjectOntoPlane(fallback, zAxis);
+            xAxis.Unitize();
+        }
+
+        return xAxis;
+    }
+
+    private static Vector3d ComputeWorldStableRollAxis(Vector3d zAxis)
+    {
+        Plane rootPlane = PlaneGenerationUtils.GetValidRootReferencePlane();
+        Vector3d xAxis = ProjectOntoPlane(rootPlane.XAxis, zAxis);
+
+        if (!xAxis.Unitize())
+        {
+            Vector3d fallback = Math.Abs(Vector3d.Multiply(rootPlane.YAxis, zAxis)) < 0.95
+                ? rootPlane.YAxis
+                : rootPlane.ZAxis;
+
+            xAxis = ProjectOntoPlane(fallback, zAxis);
+            xAxis.Unitize();
+        }
+
+        return xAxis;
+    }
+
+    private static Vector3d ProjectOntoPlane(Vector3d vector, Vector3d normal)
+    {
+        return vector - (Vector3d.Multiply(vector, normal) * normal);
+    }
 }
 
 public class HorizontalPlaneGenerator : IPlaneGenerator
 {
     public Plane GeneratePlane(PathCurve pathCurve, Point3d referencePoint, out double xAxisDif, out double yAxisDif, Vector3d? optionalTangent = null)
     {
-        Vector3d zAxis = -Vector3d.ZAxis;
+        Plane rootPlane = PlaneGenerationUtils.GetValidRootReferencePlane();
+        Vector3d zAxis = -rootPlane.ZAxis;
 
-        Vector3d toOrigin = new Vector3d(-referencePoint.X, -referencePoint.Y, -referencePoint.Z);
-        Vector3d yAxis = toOrigin;
-        yAxis.Z = 0;
-        yAxis.Unitize();
+        Vector3d yAxis = PlaneGenerationUtils.ComputeYAxisClosestToRoot(referencePoint, zAxis);
 
         if (yAxis.IsZero)
         {
-            yAxis = Vector3d.YAxis;
+            yAxis = rootPlane.YAxis;
         }
 
         Vector3d xAxis = Vector3d.CrossProduct(yAxis, zAxis);
         xAxis.Unitize();
+
+        PlaneGenerationUtils.ApplyRootFacingRollOffset(ref xAxis, ref yAxis, zAxis, referencePoint);
 
         xAxisDif = Vector3d.VectorAngle(xAxis, Vector3d.XAxis) * (180.0 / Math.PI);
         yAxisDif = Vector3d.VectorAngle(yAxis, Vector3d.YAxis) * (180.0 / Math.PI);
