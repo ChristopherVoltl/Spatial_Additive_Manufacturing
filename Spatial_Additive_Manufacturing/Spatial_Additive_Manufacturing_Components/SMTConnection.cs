@@ -449,7 +449,7 @@ namespace Spatial_Additive_Manufacturing
 
                     ActionState PauseAct = opUI.SuperOperationRef.GetActionState("CycleWait");
                     SuperActionUI actionPauseUI = opUI.ActionControls["CycleWait"];
-                    actionPauseUI.StartValue = "6.0";
+                    actionPauseUI.StartValue = "3.0";
                     actionPauseUI.ActivationMode = ActivationStyle.PointData;
 
 
@@ -473,7 +473,6 @@ namespace Spatial_Additive_Manufacturing
 
                     //cycle wait actionstates
                     SuperEvent cycleWait = new SuperEvent(PauseAct, 0.0, EventType.Activate, true);
-                    SuperEvent stopcycleWait = new SuperEvent(PauseAct, 0.0, EventType.Deactivate, true);
 
 
 
@@ -502,14 +501,15 @@ namespace Spatial_Additive_Manufacturing
                     for (int i = 0; i < AllFGAMPData.Count; i++)
                     {
                         SMTClassifiedCurve classifiedCurve = AllFGAMPData[i];
-                        Polyline polyline;
+                         Polyline polyline;
                         if (!classifiedCurve.Curve.TryGetPolyline(out polyline))
                         {
                             Line line = new Line(classifiedCurve.Curve.PointAtStart, classifiedCurve.Curve.PointAtEnd);
                             polyline = new Polyline(new[] { line.From, line.To });
                         }
                         int segmentCount = polyline.SegmentCount;
-                        int crv_index = 0;                       
+                        int crv_index = 0;
+                        List<SMTPData> pData = new();
 
                         for (int j = 0; j < segmentCount; j++)
                         {
@@ -517,7 +517,6 @@ namespace Spatial_Additive_Manufacturing
                             SMTMemberClassification segmentClassification = classifiedCurve.GetClassificationForSegment(j);
 
                             PathCurve eachCurve = CreatePathCurve(line, segmentClassification);
-                            List<SMTPData> pData = new();
 
                             IPlaneGenerator planeGenerator = PlaneGeneratorFactory.GetGenerator(eachCurve.Orientation);
                             IPathPointStrategy pointStrategy = PathPointStrategyFactory.GetStrategy(eachCurve, segmentCount, crv_index, Vertical_E5, Angled_E5, Horizontal_E5);
@@ -694,6 +693,10 @@ namespace Spatial_Additive_Manufacturing
                             // Store for visualization:
                             //allPlanes.Add(stopPlane);
                             allE5Values.Add(E5Val);
+                        }
+
+                        if (pData.Count > 0)
+                        {
                             allSMTPData.Add(pData);
                         }
 

@@ -70,6 +70,7 @@ namespace Spatial_Additive_Manufacturing
         {
             var rawPattern = new List<string>();
             DA.GetDataList(0, rawPattern);
+            bool hasExplicitPattern = rawPattern.Any(token => !string.IsNullOrWhiteSpace(token));
 
             var ignoredTokens = new List<string>();
             List<SMTMemberClassification> pattern = ParsePattern(rawPattern, ignoredTokens);
@@ -116,18 +117,33 @@ namespace Spatial_Additive_Manufacturing
             }
 
             var notices = new List<string>();
-            VerticalAngledPathResult verticalAngledPaths = BuildVerticalAngledPaths(
-                verticalMembersList,
-                angledMembersList,
-                notices);
+            List<SMTClassifiedCurve> wovenMembers;
 
-            var verticalAngledMembers = new List<SMTClassifiedCurve>();
-            verticalAngledMembers.AddRange(verticalAngledPaths.Paths);
+            if (hasExplicitPattern)
+            {
+                Dictionary<SMTMemberClassification, Queue<SMTClassifiedCurve>> buckets = CreateEmptyBuckets();
+                EnqueueMembers(buckets[SMTMemberClassification.Horizontal], horizontalMembersList);
+                EnqueueMembers(buckets[SMTMemberClassification.Vertical], verticalMembersList);
+                EnqueueMembers(buckets[SMTMemberClassification.AngledDown], angledMembersList);
+                wovenMembers = WeaveMembers(buckets, pattern, notices);
+                notices.Add("Used explicit weave pattern input for member sequencing.");
+            }
+            else
+            {
+                VerticalAngledPathResult verticalAngledPaths = BuildVerticalAngledPaths(
+                    verticalMembersList,
+                    angledMembersList,
+                    notices);
 
-            List<SMTClassifiedCurve> wovenMembers = WeaveConnectedMembers(
-                horizontalMembersList,
-                verticalAngledMembers,
-                notices);
+                var verticalAngledMembers = new List<SMTClassifiedCurve>();
+                verticalAngledMembers.AddRange(verticalAngledPaths.Paths);
+
+                wovenMembers = WeaveConnectedMembers(
+                    horizontalMembersList,
+                    verticalAngledMembers,
+                    notices);
+            }
+
             List<SMTClassifiedCurve> continuousPaths = JoinAdjacentWovenMembers(wovenMembers, notices);
 
             DA.SetDataList(0, continuousPaths.Select(member => new GH_ObjectWrapper(member)));
@@ -1533,8 +1549,14 @@ namespace Spatial_Additive_Manufacturing
 
         private static bool CanJoinSegments(ClassifiedSegment first, ClassifiedSegment second)
         {
-            return first.Classification == SMTMemberClassification.Horizontal &&
-                   second.Classification == SMTMemberClassification.Horizontal;
+            if (first.Classification == SMTMemberClassification.Horizontal &&
+                second.Classification == SMTMemberClassification.Horizontal)
+            {
+                return true;
+            }
+
+            return (first.Classification == SMTMemberClassification.Vertical && IsAngled(second.Classification)) ||
+                   (IsAngled(first.Classification) && second.Classification == SMTMemberClassification.Vertical);
         }
 
         private static IEnumerable<ClassifiedSegment> ExtractSegments(SMTClassifiedCurve member)
