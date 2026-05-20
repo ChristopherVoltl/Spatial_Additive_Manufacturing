@@ -396,7 +396,7 @@ public static class PathPointStrategyFactory
 
     private class HorizontalStrategy : IPathPointStrategy
     {
-        private const double ZHeightTest = 325.0; //Table height 607 bed height 319
+        private const double ZHeightTest = 330.0; //Table height 607 bed height 319
 
         public List<PathPointCommand> GetPathPoints(PathCurve pathCurve, int count, int crv_index, double Vertical_E5, double Angled_E5, double Horizontal_E5)
         {
